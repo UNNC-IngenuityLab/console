@@ -39,30 +39,55 @@ uv pip install -e .
 
 ### Configuration
 
-Copy `.env.example` to `.env` and configure:
+Configuration is done via **system environment variables only** (no .env files).
+
+**Required environment variables:**
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` with your settings:
-
-```env
 # Database
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=ingenuity_lab
-DB_USER=root
-DB_PASSWORD=your_password
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_NAME=ingenuity_lab
+export DB_USER=root
+export DB_PASSWORD=your_password_here
 
 # JWT
-JWT_SECRET_KEY=your-secret-key-here
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
+export JWT_SECRET_KEY=your-secret-key-change-this-in-production
+```
 
-# API
-API_HOST=0.0.0.0
-API_PORT=8000
-API_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+**Optional environment variables (with defaults):**
+
+```bash
+# Database (defaults shown)
+export DB_PORT=3306
+
+# JWT (defaults shown)
+export JWT_ALGORITHM=HS256
+export JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# API Server (defaults shown)
+export API_HOST=0.0.0.0
+export API_PORT=8000
+export API_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Environment (defaults shown)
+export ENVIRONMENT=development
+export DEBUG=true
+```
+
+### Quick Start
+
+```bash
+# Set required environment variables
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_NAME=ingenuity_lab
+export DB_USER=root
+export DB_PASSWORD=your_password
+export JWT_SECRET_KEY=your-secret-key
+
+# Run the server
+uvicorn app.main:app --reload --port 8000
 ```
 
 ### Database Setup
@@ -80,6 +105,9 @@ uvicorn app.main:app --reload --port 8000
 
 # Production
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Or using PM2
+pm2 start ecosystem.config.js
 ```
 
 ### API Documentation
@@ -95,7 +123,7 @@ Once running, visit:
 console/
 ├── app/
 │   ├── main.py              # Application entry point
-│   ├── config.py            # Configuration management
+│   ├── config.py            # Configuration management (env vars only)
 │   ├── dependencies.py      # Dependency injection
 │   ├── core/                # Core functionality
 │   │   ├── security.py      # JWT, password hashing
@@ -116,8 +144,8 @@ console/
 │       ├── analytics.py     # Analytics
 │       └── admin_logs.py    # Admin logs
 ├── tests/                   # Tests
-├── .env.example             # Environment variables template
 ├── pyproject.toml           # Python dependencies
+├── Dockerfile               # Container deployment
 └── README.md                # This file
 ```
 
@@ -224,6 +252,64 @@ ruff check app/
 
 # Type check
 mypy app/
+```
+
+## Production Deployment
+
+### PM2 Configuration
+
+Create `ecosystem.config.js`:
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'ingenuitylab-console',
+    script: 'uvicorn',
+    args: 'app.main:app --host 0.0.0.0 --port 8000',
+    cwd: __dirname,
+    interpreter: 'python3',
+    instances: 1,
+    exec_mode: 'fork',
+    autorestart: true,
+    env: {
+      DB_HOST: process.env.DB_HOST,
+      DB_PORT: process.env.DB_PORT || 3306,
+      DB_NAME: process.env.DB_NAME || 'ingenuity_lab',
+      DB_USER: process.env.DB_USER,
+      DB_PASSWORD: process.env.DB_PASSWORD,
+      JWT_SECRET_KEY: process.env.JWT_SECRET_KEY,
+    }
+  }]
+};
+```
+
+### Systemd Service
+
+Create `/etc/systemd/system/ingenuitylab-console.service`:
+
+```ini
+[Unit]
+Description=IngenuityLab Console API
+After=network.target mysql.service
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/console
+Environment="DB_HOST=localhost"
+Environment="DB_PORT=3306"
+Environment="DB_NAME=ingenuity_lab"
+Environment="DB_USER=root"
+Environment="DB_PASSWORD=your_password"
+Environment="JWT_SECRET_KEY=your_secret_key"
+Environment="API_HOST=0.0.0.0"
+Environment="API_PORT=8000"
+ExecStart=/usr/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ## License
