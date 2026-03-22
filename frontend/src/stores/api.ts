@@ -267,6 +267,17 @@ export const useApiStore = defineStore('api', () => {
     }
   }
 
+  async function updateAnnouncement(id: string, data: any) {
+    try {
+      await announcementsApi.update(id, data)
+      await fetchAnnouncements() // Refresh list
+      return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to update announcement'
+      return false
+    }
+  }
+
   async function deleteAnnouncement(id: string) {
     try {
       await announcementsApi.delete(id)
@@ -403,6 +414,7 @@ export const useApiStore = defineStore('api', () => {
     // Announcement methods
     fetchAnnouncements,
     createAnnouncement,
+    updateAnnouncement,
     deleteAnnouncement,
 
     // Settings methods

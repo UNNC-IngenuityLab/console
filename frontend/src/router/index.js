@@ -61,7 +61,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   document.title = `${to.meta.title || '管理后台'} - Leo 管理后台`
 
-  const isLoggedIn = sessionStorage.getItem('admin_logged_in')
+  const isLoggedIn = localStorage.getItem('access_token')
 
   if (to.meta.requiresAuth !== false && !isLoggedIn && to.name !== 'Login') {
     next({ name: 'Login' })

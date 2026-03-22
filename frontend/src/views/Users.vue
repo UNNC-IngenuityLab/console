@@ -9,61 +9,52 @@
         </div>
         <div class="header-stats">
           <div class="stat-item">
-            <span class="stat-value">{{ store.totalUsers }}</span>
+            <span class="stat-value">{{ store.usersPagination.total }}</span>
             <span class="stat-label">总用户</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ activeUsers }}</span>
-            <span class="stat-label">活跃</span>
           </div>
         </div>
       </div>
       <div class="header-actions">
         <el-input
           v-model="searchQuery"
-          placeholder="按学号或姓名搜索..."
+          placeholder="按学号或昵称搜索..."
           :prefix-icon="Search"
           clearable
           style="width: 300px;"
+          @input="handleSearch"
         />
-        <el-select v-model="levelFilter" placeholder="等级" clearable style="width: 160px;">
+        <el-select v-model="levelFilter" placeholder="等级" clearable style="width: 160px;" @change="handleSearch">
           <el-option label="全部等级" value="" />
           <el-option v-for="i in 10" :key="i" :label="`等级 ${i}`" :value="i" />
         </el-select>
-        <el-button type="primary" @click="exportData">
-          <el-icon><Download /></el-icon>
-          导出
-        </el-button>
       </div>
     </div>
 
     <!-- Users Table -->
     <div class="table-container card">
-      <el-table :data="filteredUsers" style="width: 100%">
-        <el-table-column width="80" align="center">
-          <template #default="{ row }">
-            <div class="user-avatar">{{ row.avatarUrl }}</div>
-          </template>
-        </el-table-column>
-
+      <el-table
+        v-loading="store.loading.users"
+        :data="store.users"
+        style="width: 100%"
+      >
         <el-table-column label="学号" width="130">
           <template #default="{ row }">
-            <span class="student-id">{{ row.studentId }}</span>
+            <span class="student-id">{{ row.student_id }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="姓名" min-width="150">
+        <el-table-column label="昵称" min-width="150">
           <template #default="{ row }">
-            <div class="user-name">{{ row.nickname }}</div>
+            <div class="user-name">{{ row.nickname || row.student_id }}</div>
           </template>
         </el-table-column>
 
         <el-table-column label="积分" width="120" align="center">
           <template #default="{ row }">
             <div class="points-cell">
-              <span class="points-value">{{ row.totalPoints }}</span>
-              <el-tag size="small" :type="getPointsTagType(row.totalPoints)">
-                {{ getPointsLabel(row.totalPoints) }}
+              <span class="points-value">{{ row.total_points }}</span>
+              <el-tag size="small" :type="getPointsTagType(Number(row.total_points))">
+                {{ getPointsLabel(Number(row.total_points)) }}
               </el-tag>
             </div>
           </template>
@@ -72,33 +63,23 @@
         <el-table-column label="等级" width="180">
           <template #default="{ row }">
             <div class="level-cell">
-              <div class="level-badge" :style="{ background: getLevelColor(row.totalPoints) }">
-                Lv.{{ getLevel(row.totalPoints) }}
+              <div class="level-badge" :style="{ background: getLevelColor(row.level) }">
+                Lv.{{ row.level }}
               </div>
-              <div class="level-name">{{ getLevelName(row.totalPoints) }}</div>
+              <div class="level-name">{{ getLevelName(row.level) }}</div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="参与活动" width="120" align="center">
+        <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
-            <div class="activity-count" @click="showUserActivities(row)">
-              <span class="count-num">{{ row.registeredActivities.length }}</span>
-              <span class="count-label">个</span>
-            </div>
+            <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
+              {{ row.is_active ? '正常' : '禁用' }}
+            </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="注册时间" width="130">
-          <template #default="{ row }">
-            <div class="date-cell">
-              <el-icon><Calendar /></el-icon>
-              {{ row.createdAt }}
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="180" align="center">
+        <el-table-column label="操作" width="200" align="center">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-tooltip content="调整积分">
@@ -121,29 +102,41 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="store.usersPagination.page"
+          v-model:page-size="store.usersPagination.pageSize"
+          :total="store.usersPagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </div>
 
     <!-- Edit Points Dialog -->
     <el-dialog v-model="showEditDialog" title="调整用户积分" width="450px">
       <div v-if="editingUser" class="edit-form">
         <div class="user-info-card">
-          <div class="user-avatar-large">{{ editingUser.avatarUrl }}</div>
           <div class="user-details">
-            <div class="user-name">{{ editingUser.nickname }}</div>
-            <div class="user-id">{{ editingUser.studentId }}</div>
-            <div class="user-level">等级 {{ getLevel(editingUser.totalPoints) }} - {{ getLevelName(editingUser.totalPoints) }}</div>
+            <div class="user-name">{{ editingUser.nickname || editingUser.student_id }}</div>
+            <div class="user-id">{{ editingUser.student_id }}</div>
+            <div class="user-level">等级 {{ editingUser.level }} - {{ getLevelName(editingUser.level) }}</div>
           </div>
         </div>
 
         <div class="points-editor">
-          <label>积分调整</label>
+          <label>积分调整（新积分值）</label>
           <div class="points-control">
             <el-button circle @click="adjustPoints(-10)">-10</el-button>
             <el-button circle @click="adjustPoints(-5)">-5</el-button>
             <el-input-number
               v-model="newPoints"
               :min="0"
-              :max="200"
+              :max="9999"
               size="large"
               style="width: 120px;"
             />
@@ -155,7 +148,7 @@
         <div class="points-preview">
           <div class="preview-item">
             <span class="preview-label">当前</span>
-            <span class="preview-value">{{ editingUser.totalPoints }}</span>
+            <span class="preview-value">{{ editingUser.total_points }}</span>
           </div>
           <div class="preview-arrow">
             <el-icon><ArrowRight /></el-icon>
@@ -179,73 +172,43 @@
 
       <template #footer>
         <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="savePoints">
+        <el-button type="primary" :loading="saving" @click="savePoints">
           保存更改
         </el-button>
       </template>
-    </el-dialog>
-
-    <!-- User Activities Dialog -->
-    <el-dialog v-model="showActivitiesDialog" title="已参与活动" width="600px">
-      <div v-if="selectedUser" class="user-activities">
-        <div class="user-info-header">
-          <span class="user-avatar">{{ selectedUser.avatarUrl }}</span>
-          <span class="user-name">{{ selectedUser.nickname }}</span>
-          <span class="activities-count">已参与 {{ userActivities.length }} 个活动</span>
-        </div>
-        <div class="activities-list">
-          <div
-            v-for="activity in userActivities"
-            :key="activity.id"
-            class="activity-item"
-          >
-            <div class="activity-status" :class="activity.status"></div>
-            <div class="activity-info">
-              <div class="activity-name">{{ activity.name }}</div>
-              <div class="activity-meta">{{ activity.date }} · {{ activity.venue }}</div>
-            </div>
-            <el-tag size="small" type="warning">{{ activity.totalPoint }} 分</el-tag>
-          </div>
-        </div>
-      </div>
     </el-dialog>
 
     <!-- User Profile Dialog -->
     <el-dialog v-model="showProfileDialog" title="用户详情" width="500px">
       <div v-if="selectedUser" class="user-profile">
         <div class="profile-header">
-          <div class="profile-avatar">{{ selectedUser.avatarUrl }}</div>
           <div class="profile-info">
-            <h3>{{ selectedUser.nickname }}</h3>
-            <p>{{ selectedUser.studentId }}</p>
+            <h3>{{ selectedUser.nickname || selectedUser.student_id }}</h3>
+            <p>{{ selectedUser.student_id }}</p>
           </div>
         </div>
         <div class="profile-stats">
           <div class="profile-stat">
-            <div class="stat-value">{{ selectedUser.totalPoints }}</div>
+            <div class="stat-value">{{ selectedUser.total_points }}</div>
             <div class="stat-label">总积分</div>
           </div>
           <div class="profile-stat">
-            <div class="stat-value">Lv.{{ getLevel(selectedUser.totalPoints) }}</div>
+            <div class="stat-value">Lv.{{ selectedUser.level }}</div>
             <div class="stat-label">当前等级</div>
           </div>
           <div class="profile-stat">
-            <div class="stat-value">{{ selectedUser.registeredActivities.length }}</div>
-            <div class="stat-label">活动数</div>
+            <div class="stat-value">{{ selectedUser.is_active ? '正常' : '禁用' }}</div>
+            <div class="stat-label">账户状态</div>
           </div>
         </div>
         <div class="profile-details">
           <div class="detail-row">
             <span class="detail-label">等级名称</span>
-            <span class="detail-value">{{ getLevelName(selectedUser.totalPoints) }}</span>
+            <span class="detail-value">{{ getLevelName(selectedUser.level) }}</span>
           </div>
           <div class="detail-row">
-            <span class="detail-label">距离下一等级</span>
-            <span class="detail-value">{{ getPointsToNextLevel(selectedUser.totalPoints) }} 分</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">注册时间</span>
-            <span class="detail-value">{{ selectedUser.createdAt }}</span>
+            <span class="detail-label">学号</span>
+            <span class="detail-value">{{ selectedUser.student_id }}</span>
           </div>
         </div>
       </div>
@@ -254,80 +217,41 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAdminStore } from '@/stores'
+import { useApiStore } from '@/stores/api'
 import {
   Search, Download, Calendar, Star, View, Delete, ArrowRight
 } from '@element-plus/icons-vue'
 
-const store = useAdminStore()
+const store = useApiStore()
 
 const searchQuery = ref('')
 const levelFilter = ref('')
 const showEditDialog = ref(false)
-const showActivitiesDialog = ref(false)
 const showProfileDialog = ref(false)
 const editingUser = ref(null)
 const selectedUser = ref(null)
 const newPoints = ref(0)
 const adjustmentReason = ref('')
+const saving = ref(false)
 
 const levelNames = [
   '车库小店', '家族商店', '邻里商店', '社区商店', '区域商店',
   '城市商店', '区域总部', '全国总部', '洲际总部', '世界级总部'
 ]
 
-const activeUsers = computed(() => {
-  return store.users.filter(u => u.registeredActivities.length > 0).length
-})
+const levelColors = [
+  '#9CA3AF', '#60A5FA', '#34D399', '#A78BFA', '#F472B6',
+  '#FB923C', '#FBBF24', '#4ADE80', '#38BDF8', '#818CF8'
+]
 
-const filteredUsers = computed(() => {
-  let result = store.users
-
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(u =>
-      u.studentId.includes(query) ||
-      u.nickname.toLowerCase().includes(query)
-    )
-  }
-
-  if (levelFilter.value) {
-    result = result.filter(u => getLevel(u.totalPoints) === levelFilter.value)
-  }
-
-  return result.sort((a, b) => b.totalPoints - a.totalPoints)
-})
-
-const userActivities = computed(() => {
-  if (!selectedUser.value) return []
-  return store.activities.filter(a =>
-    selectedUser.value.registeredActivities.includes(a.id)
-  )
-})
-
-function getLevel(points) {
-  return Math.min(Math.floor(points / 10) + 1, 10)
+function getLevelName(level) {
+  return levelNames[(level || 1) - 1] || '未知'
 }
 
-function getLevelName(points) {
-  return levelNames[getLevel(points) - 1]
-}
-
-function getLevelColor(points) {
-  const level = getLevel(points)
-  const colors = [
-    '#9CA3AF', '#60A5FA', '#34D399', '#A78BFA', '#F472B6',
-    '#FB923C', '#FBBF24', '#4ADE80', '#38BDF8', '#818CF8'
-  ]
-  return colors[level - 1]
-}
-
-function getPointsToNextLevel(points) {
-  const currentLevel = getLevel(points)
-  if (currentLevel >= 10) return 0
-  return (currentLevel * 10) - points
+function getLevelColor(level) {
+  return levelColors[(level || 1) - 1] || '#9CA3AF'
 }
 
 function getPointsTagType(points) {
@@ -345,29 +269,30 @@ function getPointsLabel(points) {
 
 function editPoints(user) {
   editingUser.value = user
-  newPoints.value = user.totalPoints
+  newPoints.value = Number(user.total_points)
   adjustmentReason.value = ''
   showEditDialog.value = true
 }
 
 function adjustPoints(amount) {
-  newPoints.value = Math.max(0, Math.min(200, newPoints.value + amount))
+  newPoints.value = Math.max(0, newPoints.value + amount)
 }
 
-function savePoints() {
+async function savePoints() {
   if (!adjustmentReason.value) {
     ElMessage.warning('请提供调整原因')
     return
   }
-
-  store.updateUser(editingUser.value.id, { totalPoints: newPoints.value })
-  ElMessage.success(`${editingUser.value.nickname} 的积分已更新`)
-  showEditDialog.value = false
-}
-
-function showUserActivities(user) {
-  selectedUser.value = user
-  showActivitiesDialog.value = true
+  saving.value = true
+  try {
+    const success = await store.updateUserPoints(editingUser.value.id, newPoints.value, adjustmentReason.value)
+    if (success) {
+      ElMessage.success(`${editingUser.value.nickname || editingUser.value.student_id} 的积分已更新`)
+      showEditDialog.value = false
+    }
+  } finally {
+    saving.value = false
+  }
 }
 
 function viewProfile(user) {
@@ -375,20 +300,40 @@ function viewProfile(user) {
   showProfileDialog.value = true
 }
 
-function deleteUser(user) {
-  ElMessageBox.confirm(
-    `确定要删除 ${user.nickname} 吗？此操作不可撤销。`,
-    '删除用户',
-    { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
-  ).then(() => {
-    store.deleteUser(user.id)
-    ElMessage.success('用户删除成功')
-  }).catch(() => {})
+async function deleteUser(user) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除 ${user.nickname || user.student_id} 吗？此操作不可撤销。`,
+      '删除用户',
+      { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    const success = await store.deleteUser(user.id)
+    if (success) ElMessage.success('用户删除成功')
+  } catch (e) {}
 }
 
-function exportData() {
-  ElMessage.success('用户数据导出成功')
+function handleSearch() {
+  const params = {}
+  if (searchQuery.value) params.search = searchQuery.value
+  if (levelFilter.value) params.level = levelFilter.value
+  store.usersPagination.page = 1
+  store.fetchUsers(params)
 }
+
+function handlePageChange(page) {
+  store.usersPagination.page = page
+  store.fetchUsers({ search: searchQuery.value || undefined, level: levelFilter.value || undefined })
+}
+
+function handleSizeChange(size) {
+  store.usersPagination.pageSize = size
+  store.usersPagination.page = 1
+  store.fetchUsers()
+}
+
+onMounted(() => {
+  store.fetchUsers()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -454,9 +399,10 @@ function exportData() {
   padding: 4px;
 }
 
-.user-avatar {
-  font-size: 28px;
-  text-align: center;
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 12px 8px;
 }
 
 .student-id {
@@ -503,41 +449,6 @@ function exportData() {
   color: $text-secondary;
 }
 
-.activity-count {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  padding: 6px 12px;
-  background: $primary-bg;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all $transition-fast;
-
-  &:hover {
-    background: color-mix(in srgb, $primary-color 15%, transparent);
-  }
-
-  .count-num {
-    font-family: $font-family-display;
-    font-size: 18px;
-    font-weight: 700;
-    color: $primary-color;
-  }
-
-  .count-label {
-    font-size: 12px;
-    color: $text-tertiary;
-  }
-}
-
-.date-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: $text-secondary;
-  font-size: 13px;
-}
-
 .actions-cell {
   display: flex;
   gap: 8px;
@@ -558,10 +469,6 @@ function exportData() {
   padding: 16px;
   background: $bg-primary;
   border-radius: $border-radius;
-}
-
-.user-avatar-large {
-  font-size: 48px;
 }
 
 .user-details {
@@ -644,74 +551,6 @@ function exportData() {
   }
 }
 
-// User Activities Dialog
-.user-activities {
-  .user-info-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid $border-color;
-    margin-bottom: 16px;
-
-    .user-avatar {
-      font-size: 32px;
-    }
-
-    .user-name {
-      font-weight: 600;
-      color: $text-primary;
-    }
-
-    .activities-count {
-      font-size: 13px;
-      color: $text-tertiary;
-      margin-left: auto;
-    }
-  }
-}
-
-.activities-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: $bg-primary;
-  border-radius: $border-radius;
-}
-
-.activity-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-
-  &.completed { background: $success-color; }
-  &.active { background: $primary-color; }
-  &.upcoming { background: $text-disabled; }
-}
-
-.activity-info {
-  flex: 1;
-
-  .activity-name {
-    font-weight: 500;
-    color: $text-primary;
-  }
-
-  .activity-meta {
-    font-size: 12px;
-    color: $text-tertiary;
-  }
-}
-
 // User Profile Dialog
 .user-profile {
   .profile-header {
@@ -719,10 +558,6 @@ function exportData() {
     align-items: center;
     gap: 16px;
     margin-bottom: 24px;
-
-    .profile-avatar {
-      font-size: 64px;
-    }
 
     .profile-info {
       h3 {

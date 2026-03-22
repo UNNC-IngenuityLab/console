@@ -3,8 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig(({ mode }) => {
-  // 加载环境变量
-  const env = loadEnv(mode, process.cwd())
+  // 加载所有环境变量（包含非 VITE_ 前缀，如 API_PORT）
+  const env = loadEnv(mode, process.cwd(), '')
 
   return {
     plugins: [vue()],
@@ -17,13 +17,13 @@ export default defineConfig(({ mode }) => {
       open: env.VITE_DEV_OPEN === 'true' || true,
       // 严格端口（如果端口被占用则失败，不自动尝试下一个端口）
       strictPort: env.VITE_DEV_STRICT_PORT === 'true',
-      // 代理配置（可选：如果需要代理 API 请求）
-      // proxy: {
-      //   '/api': {
-      //     target: env.VITE_API_BASE_URL || 'http://localhost:8000',
-      //     changeOrigin: true,
-      //   }
-      // }
+      // 开发环境代理：将 /api 请求转发到后端服务（对应 nginx 的反代规则）
+      proxy: {
+        '/api': {
+          target: `http://localhost:${env.API_PORT || '8000'}`,
+          changeOrigin: true,
+        }
+      }
     },
     build: {
       // 生产环境输出目录

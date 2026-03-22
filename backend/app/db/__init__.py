@@ -1,6 +1,7 @@
 """Database layer for the application."""
 
 from aiomysql import Pool, create_pool
+from pymysql.constants import CLIENT
 
 from app.config import settings
 
@@ -18,9 +19,10 @@ async def get_pool() -> Pool:
             password=settings.db_password,
             db=settings.db_name,
             charset="utf8mb4",
-            autocommit=False,
+            autocommit=True,
             maxsize=20,
             minsize=5,
+            client_flag=CLIENT.FOUND_ROWS,
         )
     return _pool
 

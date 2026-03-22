@@ -502,14 +502,20 @@ class AdminLogRepository(BaseRepository):
     ) -> int:
         """Create an admin log entry."""
         import json
+        from decimal import Decimal
+
+        def _default(o):
+            if isinstance(o, Decimal):
+                return str(o)
+            raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
         data = {
             "admin_openid": admin_openid,
             "action": action,
             "target_id": target_id,
             "description": description,
-            "old_value": json.dumps(old_value) if old_value else None,
-            "new_value": json.dumps(new_value) if new_value else None,
+            "old_value": json.dumps(old_value, default=_default) if old_value else None,
+            "new_value": json.dumps(new_value, default=_default) if new_value else None,
             "ip_address": ip_address,
         }
         await self.insert("admin_logs", data)

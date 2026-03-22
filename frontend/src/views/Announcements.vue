@@ -13,7 +13,7 @@
     </div>
 
     <!-- Announcements List -->
-    <div class="announcements-list">
+    <div v-loading="store.loading.announcements" class="announcements-list">
       <div
         v-for="announcement in store.announcements"
         :key="announcement.id"
@@ -21,8 +21,11 @@
       >
         <div class="announcement-header">
           <div class="announcement-status">
-            <el-tag :type="announcement.status === 'published' ? 'success' : 'info'" size="small">
-              {{ announcement.status === 'published' ? '已发布' : '草稿' }}
+            <el-tag :type="announcement.is_active ? 'success' : 'info'" size="small">
+              {{ announcement.is_active ? '已发布' : '已下线' }}
+            </el-tag>
+            <el-tag v-if="announcement.priority > 0" type="warning" size="small" style="margin-left: 8px;">
+              优先级 {{ announcement.priority }}
             </el-tag>
           </div>
           <div class="announcement-actions">
@@ -44,22 +47,29 @@
           <div class="announcement-meta">
             <span class="meta-item">
               <el-icon><Calendar /></el-icon>
-              {{ announcement.createdAt }}
-            </span>
-            <span class="meta-item">
-              <el-icon><View /></el-icon>
-              {{ Math.floor(Math.random() * 500) + 100 }} 次阅读
+              {{ announcement.created_at?.split('T')[0] }}
             </span>
           </div>
         </div>
       </div>
     </div>
 
-    <el-empty v-if="!store.announcements.length" description="暂无公告">
+    <el-empty v-if="!store.loading.announcements && !store.announcements.length" description="暂无公告">
       <el-button type="primary" @click="showCreateDialog = true">
         发布第一条公告
       </el-button>
     </el-empty>
+
+    <!-- Pagination -->
+    <div class="pagination-wrapper" v-if="store.announcementsPagination.total > store.announcementsPagination.pageSize">
+      <el-pagination
+        v-model:current-page="store.announcementsPagination.page"
+        v-model:page-size="store.announcementsPagination.pageSize"
+        :total="store.announcementsPagination.total"
+        layout="total, prev, pager, next"
+        @current-change="handlePageChange"
+      />
+    </div>
 
     <!-- Create/Edit Dialog -->
     <el-dialog
@@ -67,6 +77,7 @@
       :title="editingAnnouncement ? '编辑公告' : '发布公告'"
       width="600px"
       :close-on-click-modal="false"
+      @close="resetForm"
     >
       <el-form :model="announcementForm" label-position="top">
         <el-form-item label="标题" required>
@@ -89,17 +100,28 @@
           />
         </el-form-item>
 
-        <el-form-item label="状态">
-          <el-radio-group v-model="announcementForm.status">
-            <el-radio label="published">立即发布</el-radio>
-            <el-radio label="draft">保存草稿</el-radio>
-          </el-radio-group>
-        </el-form-item>
+        <div class="form-row">
+          <el-form-item label="优先级" class="flex-1">
+            <el-input-number
+              v-model="announcementForm.priority"
+              :min="0"
+              :max="100"
+              style="width: 100%;"
+            />
+          </el-form-item>
+          <el-form-item v-if="editingAnnouncement" label="状态" class="flex-1">
+            <el-switch
+              v-model="announcementForm.is_active"
+              active-text="已发布"
+              inactive-text="下线"
+            />
+          </el-form-item>
+        </div>
       </el-form>
 
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveAnnouncement">
+        <el-button type="primary" :loading="saving" @click="saveAnnouncement">
           {{ editingAnnouncement ? '更新' : '发布' }}
         </el-button>
       </template>
@@ -108,77 +130,92 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAdminStore } from '@/stores'
+import { useApiStore } from '@/stores/api'
 import { Plus, Edit, Delete, Calendar, View } from '@element-plus/icons-vue'
 
-const store = useAdminStore()
+const store = useApiStore()
 
 const showCreateDialog = ref(false)
 const editingAnnouncement = ref(null)
+const saving = ref(false)
 
 const announcementForm = reactive({
   title: '',
   content: '',
-  status: 'published'
+  priority: 0,
+  is_active: true
 })
 
 function editAnnouncement(announcement) {
   editingAnnouncement.value = announcement
   announcementForm.title = announcement.title
   announcementForm.content = announcement.content
-  announcementForm.status = announcement.status
+  announcementForm.priority = announcement.priority ?? 0
+  announcementForm.is_active = announcement.is_active
   showCreateDialog.value = true
 }
 
-function saveAnnouncement() {
+async function saveAnnouncement() {
   if (!announcementForm.title || !announcementForm.content) {
     ElMessage.warning('请填写所有必填项')
     return
   }
 
-  if (editingAnnouncement.value) {
-    const index = store.announcements.findIndex(a => a.id === editingAnnouncement.value.id)
-    if (index > -1) {
-      store.announcements[index] = {
-        ...store.announcements[index],
+  saving.value = true
+  try {
+    if (editingAnnouncement.value) {
+      const success = await store.updateAnnouncement(editingAnnouncement.value.id, {
         title: announcementForm.title,
         content: announcementForm.content,
-        status: announcementForm.status
-      }
+        priority: announcementForm.priority,
+        is_active: announcementForm.is_active
+      })
+      if (success) ElMessage.success('公告更新成功')
+    } else {
+      const success = await store.createAnnouncement({
+        title: announcementForm.title,
+        content: announcementForm.content,
+        priority: announcementForm.priority
+      })
+      if (success) ElMessage.success('公告发布成功')
     }
-    ElMessage.success('公告更新成功')
-  } else {
-    store.addAnnouncement({
-      title: announcementForm.title,
-      content: announcementForm.content,
-      status: announcementForm.status
-    })
-    ElMessage.success('公告发布成功')
+    resetForm()
+    showCreateDialog.value = false
+  } finally {
+    saving.value = false
   }
-
-  resetForm()
-  showCreateDialog.value = false
 }
 
-function deleteAnnouncement(announcement) {
-  ElMessageBox.confirm(
-    `确定要删除公告"${announcement.title}"吗？`,
-    '删除公告',
-    { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
-  ).then(() => {
-    store.deleteAnnouncement(announcement.id)
-    ElMessage.success('公告删除成功')
-  }).catch(() => {})
+async function deleteAnnouncement(announcement) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除公告"${announcement.title}"吗？`,
+      '删除公告',
+      { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    const success = await store.deleteAnnouncement(announcement.id)
+    if (success) ElMessage.success('公告删除成功')
+  } catch (e) {}
 }
 
 function resetForm() {
   editingAnnouncement.value = null
   announcementForm.title = ''
   announcementForm.content = ''
-  announcementForm.status = 'published'
+  announcementForm.priority = 0
+  announcementForm.is_active = true
 }
+
+function handlePageChange(page) {
+  store.announcementsPagination.page = page
+  store.fetchAnnouncements()
+}
+
+onMounted(() => {
+  store.fetchAnnouncements()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -240,5 +277,17 @@ function resetForm() {
   gap: 6px;
   font-size: 13px;
   color: $text-tertiary;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  .flex-1 { flex: 1; }
 }
 </style>

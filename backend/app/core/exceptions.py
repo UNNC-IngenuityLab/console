@@ -17,6 +17,7 @@ class AppException(HTTPException):
     ) -> None:
         self.code = code
         self.message = message
+        self.http_status = http_status
         self.detail = detail
         super().__init__(status_code=http_status, detail=message)
 

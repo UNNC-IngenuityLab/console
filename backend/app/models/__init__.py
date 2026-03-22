@@ -1,9 +1,26 @@
 """Pydantic models for request/response validation."""
 
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class BaseResponse(BaseModel):
+    """Base response model: auto-converts date/datetime to ISO string."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _convert_datetimes(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {
+                k: str(v) if isinstance(v, (datetime, date)) else v
+                for k, v in data.items()
+            }
+        return data
+
+    model_config = {"from_attributes": True}
 
 
 # =============================================================================
@@ -47,7 +64,7 @@ class LoginResponse(BaseModel):
 # User Models
 # =============================================================================
 
-class UserSummary(BaseModel):
+class UserSummary(BaseResponse):
     """Basic user information."""
     id: str
     student_id: str
@@ -56,8 +73,6 @@ class UserSummary(BaseModel):
     total_points: Decimal
     level: int
     is_active: bool
-
-    model_config = {"from_attributes": True}
 
 
 class UserDetail(UserSummary):
@@ -110,7 +125,7 @@ class SubActivityUpdate(BaseModel):
     sort_order: int | None = Field(None, ge=0)
 
 
-class SubActivityResponse(BaseModel):
+class SubActivityResponse(BaseResponse):
     """Sub-activity response."""
     id: int
     activity_id: str
@@ -120,8 +135,6 @@ class SubActivityResponse(BaseModel):
     sort_order: int
     created_at: str
     updated_at: str
-
-    model_config = {"from_attributes": True}
 
 
 class ActivityCreate(BaseModel):
@@ -153,7 +166,7 @@ class ActivityUpdate(BaseModel):
     is_active: bool | None = None
 
 
-class ActivityResponse(BaseModel):
+class ActivityResponse(BaseResponse):
     """Activity response."""
     id: str
     activity_id: int
@@ -169,8 +182,7 @@ class ActivityResponse(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
-
-    model_config = {"from_attributes": True}
+    sub_activity_count: int = 0
 
 
 class ActivityDetail(ActivityResponse):
@@ -207,7 +219,7 @@ class AnnouncementUpdate(BaseModel):
     priority: int | None = Field(None, ge=0)
 
 
-class AnnouncementResponse(BaseModel):
+class AnnouncementResponse(BaseResponse):
     """Announcement response."""
     id: str
     creator_openid: str
@@ -217,8 +229,6 @@ class AnnouncementResponse(BaseModel):
     priority: int
     created_at: str
     updated_at: str
-
-    model_config = {"from_attributes": True}
 
 
 # =============================================================================
@@ -266,7 +276,7 @@ class LevelConfigUpdate(BaseModel):
     sort_order: int | None = Field(None, ge=0)
 
 
-class LevelConfigResponse(BaseModel):
+class LevelConfigResponse(BaseResponse):
     """Level config response."""
     id: int
     level: int
@@ -289,8 +299,6 @@ class LevelConfigResponse(BaseModel):
     created_at: str
     updated_at: str
 
-    model_config = {"from_attributes": True}
-
 
 class ReorderLevelsRequest(BaseModel):
     """Request to reorder levels."""
@@ -301,7 +309,7 @@ class ReorderLevelsRequest(BaseModel):
 # UI Config Models
 # =============================================================================
 
-class UIConfigResponse(BaseModel):
+class UIConfigResponse(BaseResponse):
     """UI config response."""
     key: str
     value: str
@@ -314,8 +322,6 @@ class UIConfigResponse(BaseModel):
     allowed_values: Any | None
     updated_at: str
     updated_by: str | None
-
-    model_config = {"from_attributes": True}
 
 
 class UIConfigUpdate(BaseModel):
@@ -332,7 +338,7 @@ class BatchUIConfigUpdate(BaseModel):
 # System Settings Models
 # =============================================================================
 
-class SystemSettingsResponse(BaseModel):
+class SystemSettingsResponse(BaseResponse):
     """System settings response."""
     id: str
     qr_code_expiration_seconds: int
@@ -347,8 +353,6 @@ class SystemSettingsResponse(BaseModel):
     maintenance_mode: bool
     maintenance_message: str | None
     updated_at: str
-
-    model_config = {"from_attributes": True}
 
 
 class SystemSettingsUpdate(BaseModel):
@@ -430,7 +434,7 @@ class AnalyticsQuery(BaseModel):
 # Admin Log Models
 # =============================================================================
 
-class AdminLogResponse(BaseModel):
+class AdminLogResponse(BaseResponse):
     """Admin log response."""
     id: int
     admin_openid: str
@@ -441,8 +445,6 @@ class AdminLogResponse(BaseModel):
     new_value: Any | None
     ip_address: str | None
     created_at: str
-
-    model_config = {"from_attributes": True}
 
 
 class AdminLogQuery(BaseModel):

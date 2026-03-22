@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated
 
+import aiomysql
 from fastapi import APIRouter, Depends, Query
 
 from app.db.repositories import UserRepository
@@ -27,7 +28,7 @@ async def get_dashboard_stats(
     conn: Annotated[object, Depends(get_db_connection)] = None,
 ) -> ApiResponse:
     """Get dashboard statistics."""
-    async with conn.cursor() as cursor:
+    async with conn.cursor(aiomysql.DictCursor) as cursor:
         # Total users
         await cursor.execute("SELECT COUNT(*) as count FROM users WHERE is_active = 1")
         total_users = (await cursor.fetchone())["count"]
@@ -83,13 +84,13 @@ async def get_activity_stats(
     conn: Annotated[object, Depends(get_db_connection)] = None,
 ) -> ApiResponse:
     """Get activity completion statistics."""
-    async with conn.cursor() as cursor:
+    async with conn.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(f"""
             SELECT
                 id as activity_id,
                 name as activity_name,
-                sign_up_count,
-                completed_count,
+                actual_sign_up_count as sign_up_count,
+                actual_completed_count as completed_count,
                 completion_rate_percent as completion_rate,
                 total_point as total_points
             FROM v_activity_stats
@@ -122,7 +123,7 @@ async def get_trend_data(
     """Get user activity trend data."""
     start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    async with conn.cursor() as cursor:
+    async with conn.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(f"""
             SELECT
                 DATE(created_at) as date,
@@ -197,10 +198,10 @@ async def get_leaderboard(
     conn: Annotated[object, Depends(get_db_connection)] = None,
 ) -> ApiResponse:
     """Get leaderboard data."""
-    async with conn.cursor() as cursor:
+    async with conn.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(f"""
             SELECT
-                rank,
+                `rank`,
                 id as user_id,
                 student_id,
                 nickname,
@@ -234,7 +235,7 @@ async def get_level_distribution(
     conn: Annotated[object, Depends(get_db_connection)] = None,
 ) -> ApiResponse:
     """Get user level distribution."""
-    async with conn.cursor() as cursor:
+    async with conn.cursor(aiomysql.DictCursor) as cursor:
         # Get total users
         await cursor.execute("SELECT COUNT(*) as total FROM users WHERE is_active = 1")
         total_result = await cursor.fetchone()

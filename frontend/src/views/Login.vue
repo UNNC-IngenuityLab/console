@@ -24,7 +24,7 @@
           <el-form-item prop="username">
             <el-input
               v-model="form.username"
-              placeholder="用户名"
+              placeholder="学号"
               size="large"
               :prefix-icon="User"
             />
@@ -61,7 +61,7 @@
         <div class="login-footer">
           <p class="hint">
             <el-icon :size="14"><InfoFilled /></el-icon>
-            演示账号: <code>admin</code> / <code>123</code>
+            使用学号和密码登录管理后台
           </p>
         </div>
       </div>
@@ -89,8 +89,10 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, InfoFilled, DataLine, UserFilled } from '@element-plus/icons-vue'
+import { useApiStore } from '@/stores/api'
 
 const router = useRouter()
+const store = useApiStore()
 const formRef = ref(null)
 const loading = ref(false)
 const rememberMe = ref(false)
@@ -102,7 +104,7 @@ const form = reactive({
 
 const rules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
+    { required: true, message: '请输入学号', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
@@ -114,17 +116,15 @@ async function handleLogin() {
   if (!valid) return
 
   loading.value = true
-
-  setTimeout(() => {
-    if (form.username === 'admin' && form.password === '123') {
-      sessionStorage.setItem('admin_logged_in', 'true')
+  try {
+    const success = await store.login(form.username, form.password)
+    if (success) {
       ElMessage.success('欢迎回来，管理员！')
       router.push('/dashboard')
-    } else {
-      ElMessage.error('用户名或密码错误')
     }
+  } finally {
     loading.value = false
-  }, 800)
+  }
 }
 </script>
 

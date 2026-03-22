@@ -16,10 +16,6 @@
         <div class="stat-content">
           <div class="stat-value">
             <span class="stat-number">{{ stat.value }}</span>
-            <span v-if="stat.change" class="stat-change" :class="stat.changeClass">
-              <el-icon :size="12"><component :is="stat.changeIcon" /></el-icon>
-              {{ stat.change }}
-            </span>
           </div>
           <div class="stat-label">{{ stat.label }}</div>
         </div>
@@ -58,35 +54,39 @@
             查看全部 <el-icon><ArrowRight /></el-icon>
           </el-button>
         </div>
-        <div class="activity-list">
+        <div v-if="store.loading.activities" class="loading-placeholder">
+          <el-skeleton :rows="4" animated />
+        </div>
+        <div v-else class="activity-list">
           <div
             v-for="activity in recentActivities"
             :key="activity.id"
             class="activity-item"
           >
-            <div class="activity-status" :class="activity.statusClass"></div>
+            <div class="activity-status" :class="activity.is_active ? 'active' : 'completed'"></div>
             <div class="activity-info">
               <div class="activity-name">{{ activity.name }}</div>
               <div class="activity-meta">
-                <span><el-icon><Calendar /></el-icon> {{ activity.date }}</span>
+                <span><el-icon><Calendar /></el-icon> {{ activity.date_range }}</span>
                 <span><el-icon><Location /></el-icon> {{ activity.venue }}</span>
               </div>
             </div>
             <div class="activity-stats">
               <div class="activity-points">
-                <span class="points-value">{{ activity.totalPoint }}</span>
+                <span class="points-value">{{ activity.total_point }}</span>
                 <span class="points-label">分</span>
               </div>
               <div class="activity-progress">
                 <el-progress
-                  :percentage="activity.completionRate"
+                  :percentage="getCompletionRate(activity)"
                   :stroke-width="6"
                   :show-text="false"
-                  :color="getProgressColor(activity.completionRate)"
+                  :color="getProgressColor(getCompletionRate(activity))"
                 />
               </div>
             </div>
           </div>
+          <el-empty v-if="!recentActivities.length" description="暂无活动" :image-size="60" />
         </div>
       </div>
 
@@ -107,16 +107,17 @@
             <div class="announcement-dot"></div>
             <div class="announcement-content">
               <div class="announcement-title">{{ announcement.title }}</div>
-              <div class="announcement-date">{{ announcement.createdAt }}</div>
+              <div class="announcement-date">{{ announcement.created_at?.split('T')[0] }}</div>
             </div>
           </div>
+          <el-empty v-if="!recentAnnouncements.length" description="暂无公告" :image-size="60" />
         </div>
       </div>
 
       <!-- Activity Chart -->
       <div class="activity-chart card">
         <div class="card-header">
-          <h3>活跃度趋势</h3>
+          <h3>活跃度趋势（近7天）</h3>
           <div class="chart-legend">
             <span class="legend-item">
               <span class="legend-dot" style="background: #4F46E5;"></span>
@@ -124,14 +125,14 @@
             </span>
             <span class="legend-item">
               <span class="legend-dot" style="background: #10B981;"></span>
-              签到数
+              完成数
             </span>
           </div>
         </div>
         <div ref="chartRef" class="chart-container"></div>
       </div>
 
-      <!-- Top Users -->
+      <!-- Top Users (Leaderboard) -->
       <div class="top-users card">
         <div class="card-header">
           <h3>积分榜 Top 5</h3>
@@ -139,25 +140,29 @@
             查看全部 <el-icon><ArrowRight /></el-icon>
           </el-button>
         </div>
-        <div class="leaderboard">
+        <div v-if="store.loading.analytics" class="loading-placeholder">
+          <el-skeleton :rows="4" animated />
+        </div>
+        <div v-else class="leaderboard">
           <div
-            v-for="(user, index) in topUsers"
-            :key="user.id"
+            v-for="(entry, index) in topUsers"
+            :key="entry.user_id"
             class="leaderboard-item"
           >
             <div class="rank" :class="{ top: index < 3 }">
-              {{ index + 1 }}
+              {{ entry.rank }}
             </div>
-            <div class="user-avatar">{{ user.avatarUrl }}</div>
+            <div class="user-avatar">{{ entry.avatar_url ? '' : '👤' }}</div>
             <div class="user-info">
-              <div class="user-name">{{ user.nickname }}</div>
-              <div class="user-id">{{ user.studentId }}</div>
+              <div class="user-name">{{ entry.nickname || entry.student_id }}</div>
+              <div class="user-id">{{ entry.student_id }}</div>
             </div>
             <div class="user-points">
-              <span class="points-value">{{ user.totalPoints }}</span>
+              <span class="points-value">{{ entry.total_points }}</span>
               <span class="points-label">分</span>
             </div>
           </div>
+          <el-empty v-if="!topUsers.length" description="暂无数据" :image-size="60" />
         </div>
       </div>
     </div>
@@ -166,14 +171,15 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useAdminStore } from '@/stores'
+import { useApiStore } from '@/stores/api'
+import { analyticsApi } from '@/api/services'
 import * as echarts from 'echarts'
 import {
   User, Calendar, Bell, TrendCharts, ArrowRight, Checked,
   Location, Plus, Star, DataLine, List
 } from '@element-plus/icons-vue'
 
-const store = useAdminStore()
+const store = useApiStore()
 const chartRef = ref(null)
 
 const stats = computed(() => [
@@ -182,22 +188,16 @@ const stats = computed(() => [
     value: store.totalUsers,
     icon: 'User',
     color: '#4F46E5',
-    change: '+12%',
-    changeClass: 'positive',
-    changeIcon: 'ArrowUp'
   },
   {
     label: '进行中活动',
     value: store.activeActivities,
     icon: 'Calendar',
     color: '#10B981',
-    change: '+3',
-    changeClass: 'positive',
-    changeIcon: 'ArrowUp'
   },
   {
-    label: '今日签到',
-    value: store.todayCheckIns,
+    label: '总完成签到',
+    value: store.dashboardStats?.total_completions ?? 0,
     icon: 'Checked',
     color: '#F59E0B'
   },
@@ -216,21 +216,16 @@ const quickActions = [
   { label: '数据分析', icon: 'TrendCharts', color: '#8B5CF6', path: '/analytics' }
 ]
 
-const recentActivities = computed(() => {
-  return store.activities.slice(0, 5).map(a => ({
-    ...a,
-    statusClass: a.status === 'completed' ? 'completed' : a.status === 'active' ? 'active' : 'upcoming',
-    completionRate: a.signUpCount > 0 ? Math.round((a.completedCount / a.signUpCount) * 100) : 0
-  }))
-})
+const recentActivities = computed(() => store.activities.slice(0, 5))
 
 const recentAnnouncements = computed(() => store.announcements.slice(0, 4))
 
-const topUsers = computed(() => {
-  return [...store.users]
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .slice(0, 5)
-})
+const topUsers = computed(() => store.leaderboard.slice(0, 5))
+
+function getCompletionRate(activity) {
+  if (!activity.sign_up_count) return 0
+  return Math.round((activity.completed_count / activity.sign_up_count) * 100)
+}
 
 function getProgressColor(rate) {
   if (rate >= 70) return '#10B981'
@@ -238,61 +233,52 @@ function getProgressColor(rate) {
   return '#EF4444'
 }
 
-onMounted(() => {
-  if (chartRef.value) {
-    const chart = echarts.init(chartRef.value)
+let chartInstance = null
 
-    const option = {
-      grid: { top: 20, right: 20, bottom: 30, left: 40 },
-      xAxis: {
-        type: 'category',
-        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: '#9CA3AF' }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#E5E7EB', type: 'dashed' } },
-        axisLabel: { color: '#9CA3AF' }
-      },
+async function initChart() {
+  if (!chartRef.value) return
+  chartInstance = echarts.init(chartRef.value)
+
+  // 先显示空图
+  chartInstance.setOption({
+    grid: { top: 20, right: 20, bottom: 30, left: 40 },
+    xAxis: { type: 'category', data: [], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#9CA3AF' } },
+    yAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: '#E5E7EB', type: 'dashed' } }, axisLabel: { color: '#9CA3AF' } },
+    series: [
+      { name: '报名数', type: 'line', smooth: true, data: [], lineStyle: { color: '#4F46E5', width: 3 }, itemStyle: { color: '#4F46E5' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(79,70,229,0.3)' }, { offset: 1, color: 'rgba(79,70,229,0)' }]) } },
+      { name: '完成数', type: 'line', smooth: true, data: [], lineStyle: { color: '#10B981', width: 3 }, itemStyle: { color: '#10B981' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16,185,129,0.3)' }, { offset: 1, color: 'rgba(16,185,129,0)' }]) } }
+    ]
+  })
+
+  try {
+    const res = await analyticsApi.trend({ days: 7 })
+    const trendData = res.data || []
+    const labels = trendData.map(d => d.date.slice(5))
+    const signups = trendData.map(d => d.new_signups)
+    const completions = trendData.map(d => d.new_completions)
+
+    chartInstance.setOption({
+      xAxis: { data: labels },
       series: [
-        {
-          name: '报名数',
-          type: 'line',
-          smooth: true,
-          data: [120, 132, 101, 134, 90, 230, 210],
-          lineStyle: { color: '#4F46E5', width: 3 },
-          itemStyle: { color: '#4F46E5' },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(79, 70, 229, 0.3)' },
-              { offset: 1, color: 'rgba(79, 70, 229, 0)' }
-            ])
-          }
-        },
-        {
-          name: '签到数',
-          type: 'line',
-          smooth: true,
-          data: [90, 82, 71, 94, 80, 180, 160],
-          lineStyle: { color: '#10B981', width: 3 },
-          itemStyle: { color: '#10B981' },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
-              { offset: 1, color: 'rgba(16, 185, 129, 0)' }
-            ])
-          }
-        }
+        { name: '报名数', data: signups },
+        { name: '完成数', data: completions }
       ]
-    }
-
-    chart.setOption(option)
-    window.addEventListener('resize', () => chart.resize())
+    })
+  } catch (e) {
+    // 保持空图
   }
+
+  window.addEventListener('resize', () => chartInstance?.resize())
+}
+
+onMounted(async () => {
+  await Promise.all([
+    store.fetchDashboardStats(),
+    store.fetchActivities({ page: 1, page_size: 5 }),
+    store.fetchAnnouncements({ page: 1, page_size: 4 }),
+    store.fetchLeaderboard(5),
+  ])
+  initChart()
 })
 </script>
 
@@ -347,15 +333,6 @@ onMounted(() => {
   font-size: 32px;
   font-weight: 700;
   color: $text-primary;
-}
-
-.stat-change {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 500;
-  &.positive { color: $success-color; }
 }
 
 .stat-label {
@@ -427,6 +404,8 @@ onMounted(() => {
 
 .recent-activities { grid-column: span 2; }
 
+.loading-placeholder { padding: 8px 0; }
+
 .activity-list { display: flex; flex-direction: column; }
 
 .activity-item {
@@ -445,11 +424,10 @@ onMounted(() => {
   flex-shrink: 0;
   &.completed { background: $success-color; }
   &.active { background: $primary-color; }
-  &.upcoming { background: $text-disabled; }
 }
 
 .activity-info { flex: 1; min-width: 0; }
-.activity-name { font-weight: 600; color: $text-primary; margin-bottom: 4px; }
+.activity-name { font-weight: 600; color: $text-primary; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .activity-meta {
   display: flex;
   gap: 16px;
@@ -538,7 +516,7 @@ onMounted(() => {
 
 .user-avatar { font-size: 24px; }
 .user-info { flex: 1; min-width: 0; }
-.user-name { font-weight: 600; color: $text-primary; }
+.user-name { font-weight: 600; color: $text-primary; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-id { font-size: 12px; color: $text-tertiary; }
 
 .user-points {

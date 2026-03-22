@@ -2,12 +2,13 @@
 
 # Common query fragments
 SELECT_USER_FIELDS = """
-    id, openid, student_id, nickname, avatar_url, total_points, level, is_active, created_at, updated_at
+    id, openid, student_id, password, IFNULL(nickname, student_id) AS nickname, avatar_url, total_points, level, is_active, created_at, updated_at
 """
 
 SELECT_ACTIVITY_FIELDS = """
     id, activity_id, creator_openid, name, venue, date_range, start_date, end_date,
-    total_point, sign_up_count, completed_count, is_active, created_at, updated_at
+    total_point, sign_up_count, completed_count, is_active, created_at, updated_at,
+    (SELECT COUNT(*) FROM sub_activities sa WHERE sa.activity_id = activities.id) AS sub_activity_count
 """
 
 SELECT_ANNOUNCEMENT_FIELDS = """
