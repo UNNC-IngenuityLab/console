@@ -20,7 +20,8 @@
     "element-plus": "^2.9.0",
     "pinia": "^2.1.0",
     "vue": "^3.4.0",
-    "vue-router": "^4.3.0"
+    "vue-router": "^4.3.0",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

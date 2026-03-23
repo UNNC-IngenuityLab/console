@@ -305,6 +305,12 @@ class ReorderLevelsRequest(BaseModel):
     level_orders: dict[int, int] = Field(..., description="Map of level -> sort_order")
 
 
+class ImportLevelsRequest(BaseModel):
+    """Request to import level configurations."""
+    levels: list[LevelConfigCreate] = Field(..., min_length=1, description="List of level configurations to import")
+    replace_existing: bool = Field(default=False, description="Replace all existing levels before import")
+
+
 # =============================================================================
 # UI Config Models
 # =============================================================================

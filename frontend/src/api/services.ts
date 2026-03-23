@@ -203,6 +203,12 @@ export const levelsApi = {
   export: () => client.get<ApiResponse<{ levels: LevelConfig[]; exported_at: string }>>('/api/v1/levels/export'),
 
   /**
+   * Import level configs from JSON
+   */
+  import: (data: { levels: LevelConfigCreate[]; replace_existing?: boolean }) =>
+    client.post<ApiResponse<{ imported_count: number }>>('/api/v1/levels/import', data),
+
+  /**
    * Get level config by ID
    */
   get: (id: number) => client.get<ApiResponse<LevelConfig>>(`/api/v1/levels/${id}`),

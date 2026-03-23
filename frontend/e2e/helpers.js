@@ -156,6 +156,116 @@ export const MOCK_ACTIVITY_STATS = {
   data: [],
 }
 
+export const MOCK_LEVELS = {
+  code: 0,
+  message: 'success',
+  data: [
+    {
+      id: 1,
+      level: 1,
+      name: '车库小店',
+      name_en: 'Garage Shop',
+      name_zh_tw: '車庫小店',
+      min_score: '0.00',
+      max_score: '10.00',
+      icon_url: '/assets/levels/level-1.png',
+      icon_dark_url: null,
+      bg_color: '#9E9E9E',
+      bg_gradient_start: null,
+      bg_gradient_end: null,
+      description: '创业起步',
+      description_en: 'Startup Beginning',
+      animation_type: 'none',
+      sound_url: null,
+      is_active: true,
+      sort_order: 0,
+      created_at: '2024-01-01T00:00:00',
+      updated_at: '2024-01-01T00:00:00',
+    },
+    {
+      id: 2,
+      level: 2,
+      name: '城市小店',
+      name_en: 'City Shop',
+      name_zh_tw: '城市小店',
+      min_score: '10.00',
+      max_score: '25.00',
+      icon_url: '/assets/levels/level-2.png',
+      icon_dark_url: null,
+      bg_color: '#2196F3',
+      bg_gradient_start: null,
+      bg_gradient_end: null,
+      description: '小有成就',
+      description_en: 'Some Achievement',
+      animation_type: 'none',
+      sound_url: null,
+      is_active: true,
+      sort_order: 1,
+      created_at: '2024-01-01T00:00:00',
+      updated_at: '2024-01-01T00:00:00',
+    },
+  ],
+}
+
+export const MOCK_LEVELS_EXPORT = {
+  code: 0,
+  message: 'success',
+  data: {
+    levels: [
+      {
+        level: 1,
+        name: '车库小店',
+        min_score: '0.00',
+        max_score: '10.00',
+        is_active: true,
+      },
+    ],
+    exported_at: '2024-01-01T00:00:00',
+  },
+}
+
+export const MOCK_UI_CONFIG = {
+  code: 0,
+  message: 'success',
+  data: {
+    general: {
+      app_name: {
+        key: 'app_name',
+        value: 'IngenuityLab',
+        type: 'text',
+        category: 'general',
+        label: '应用名称',
+        description: null,
+        min_value: null,
+        max_value: null,
+        allowed_values: null,
+        updated_at: '2024-01-01T00:00:00',
+        updated_by: 'admin',
+      },
+    },
+  },
+}
+
+export const MOCK_SYSTEM_SETTINGS = {
+  code: 0,
+  message: 'success',
+  data: {
+    id: 'system',
+    qr_code_expiration_seconds: 300,
+    max_points_per_activity: '50.00',
+    max_points_per_sub_activity: '10.00',
+    registration_open: true,
+    new_user_initial_points: '0.00',
+    leaderboard_top_n: 10,
+    leaderboard_refresh_interval_seconds: 300,
+    activities_per_page: 10,
+    scan_rate_limit_per_minute: 10,
+    maintenance_mode: false,
+    maintenance_message: null,
+    updated_at: '2024-01-01T00:00:00',
+  },
+}
+
 /**
  * Set localStorage access token to simulate a logged-in state.
  * Must be called before page.goto() — uses addInitScript which runs before page JS.

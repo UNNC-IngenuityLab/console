@@ -413,6 +413,12 @@ class LevelConfigRepository(BaseRepository):
         await self.execute_many(query, values)
         return True
 
+    async def delete_all(self) -> bool:
+        """Delete all level configs."""
+        query = "DELETE FROM level_configs"
+        await self.execute(query)
+        return True
+
 
 class UIConfigRepository(BaseRepository):
     """Repository for UI configuration operations."""

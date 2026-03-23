@@ -14,6 +14,7 @@ from app.dependencies import (
 )
 from app.models import (
     ApiResponse,
+    ImportLevelsRequest,
     LevelConfigCreate,
     LevelConfigResponse,
     LevelConfigUpdate,
@@ -77,6 +78,108 @@ async def export_level_configs(
             "exported_at": levels[0]["updated_at"] if levels else None,
         },
     )
+
+
+@router.post("/import", response_model=ApiResponse)
+async def import_level_configs(
+    data: ImportLevelsRequest,
+    current_user: Annotated[dict, Depends(get_admin_user)] = None,
+    conn: Annotated[object, Depends(get_db_connection)] = None,
+    log_repo: Annotated[object, Depends(get_admin_log_repo)] = None,
+    client_ip: Annotated[str | None, Depends(get_client_ip)] = None,
+) -> ApiResponse:
+    """Import level configurations from JSON.
+
+    If replace_existing is True, all existing levels will be deleted first.
+    """
+    if not data.levels:
+        raise ValidationException("No levels provided for import")
+
+    # Check for duplicate levels in import data
+    level_numbers = [lvl.level for lvl in data.levels]
+    if len(level_numbers) != len(set(level_numbers)):
+        raise ValidationException("Duplicate level numbers found in import data")
+
+    repo = LevelConfigRepository(conn)
+
+    # If replace_existing, delete all existing levels first
+    if data.replace_existing:
+        await repo.delete_all()
+
+    imported_count = 0
+    for idx, level_data in enumerate(data.levels):
+        # Check if level already exists (skip if replace_existing was used)
+        if not data.replace_existing:
+            existing = await repo.find_by_level(level_data.level)
+            if existing:
+                continue  # Skip existing levels
+
+        level_dict = {
+            "level": level_data.level,
+            "name": level_data.name,
+            "name_en": level_data.name_en,
+            "name_zh_tw": level_data.name_zh_tw,
+            "min_score": level_data.min_score,
+            "max_score": level_data.max_score,
+            "icon_url": level_data.icon_url,
+            "icon_dark_url": level_data.icon_dark_url,
+            "bg_color": level_data.bg_color,
+            "bg_gradient_start": level_data.bg_gradient_start,
+            "bg_gradient_end": level_data.bg_gradient_end,
+            "description": level_data.description,
+            "description_en": level_data.description_en,
+            "animation_type": level_data.animation_type,
+            "sound_url": level_data.sound_url,
+            "is_active": 1 if level_data.is_active else 0,
+            "sort_order": level_data.sort_order if level_data.sort_order is not None else idx,
+        }
+
+        await repo.create_level_config(level_dict)
+        imported_count += 1
+
+    # Log the action
+    await log_repo.create(
+        admin_openid=current_user.get("openid", ""),
+        action="import_levels",
+        target_id=None,
+        description=f"Imported {imported_count} level configurations (replace_existing={data.replace_existing})",
+        new_value={"imported_count": imported_count, "replace_existing": data.replace_existing},
+        ip_address=client_ip,
+    )
+
+    return ApiResponse(
+        message=f"Successfully imported {imported_count} level configurations",
+        data={"imported_count": imported_count},
+    )
+
+
+@router.put("/reorder", response_model=ApiResponse)
+async def reorder_levels(
+    data: ReorderLevelsRequest,
+    current_user: Annotated[dict, Depends(get_admin_user)] = None,
+    conn: Annotated[object, Depends(get_db_connection)] = None,
+    log_repo: Annotated[object, Depends(get_admin_log_repo)] = None,
+    client_ip: Annotated[str | None, Depends(get_client_ip)] = None,
+) -> ApiResponse:
+    """Reorder level configurations."""
+    repo = LevelConfigRepository(conn)
+
+    success = await repo.reorder_levels(data.level_orders)
+
+    if not success:
+        raise ValidationException("Failed to reorder levels")
+
+    # Log the action
+    await log_repo.create(
+        admin_openid=current_user.get("openid", ""),
+        action="reorder_levels",
+        target_id=None,
+        description=f"Reordered levels: {data.level_orders}",
+        new_value={"level_orders": data.level_orders},
+        ip_address=client_ip,
+    )
+
+    return ApiResponse(message="Levels reordered successfully")
 
 
 @router.get("/{level_config_id}", response_model=ApiResponse)
@@ -251,32 +354,3 @@ async def delete_level_config(
     )
 
     return ApiResponse(message="Level configuration deleted successfully")
-
-
-@router.put("/reorder", response_model=ApiResponse)
-async def reorder_levels(
-    data: ReorderLevelsRequest,
-    current_user: Annotated[dict, Depends(get_admin_user)] = None,
-    conn: Annotated[object, Depends(get_db_connection)] = None,
-    log_repo: Annotated[object, Depends(get_admin_log_repo)] = None,
-    client_ip: Annotated[str | None, Depends(get_client_ip)] = None,
-) -> ApiResponse:
-    """Reorder level configurations."""
-    repo = LevelConfigRepository(conn)
-
-    success = await repo.reorder_levels(data.level_orders)
-
-    if not success:
-        raise ValidationException("Failed to reorder levels")
-
-    # Log the action
-    await log_repo.create(
-        admin_openid=current_user.get("openid", ""),
-        action="reorder_levels",
-        target_id=None,
-        description=f"Reordered levels: {data.level_orders}",
-        new_value={"level_orders": data.level_orders},
-        ip_address=client_ip,
-    )
-
-    return ApiResponse(message="Levels reordered successfully")

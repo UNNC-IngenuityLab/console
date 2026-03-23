@@ -114,11 +114,26 @@
           </div>
           <h3>等级配置</h3>
         </div>
+
+        <!-- Toolbar -->
+        <div class="level-table-toolbar">
+          <el-button type="primary" plain size="small" @click="exportLevels">
+            <el-icon><Download /></el-icon> 导出 JSON
+          </el-button>
+          <el-button plain size="small" @click="showImportDialog = true">
+            <el-icon><Upload /></el-icon> 导入 JSON
+          </el-button>
+          <span v-if="isSavingOrder" class="saving-hint">
+            <el-icon class="is-loading"><Loading /></el-icon> 保存中...
+          </span>
+        </div>
+
         <el-skeleton v-if="loadingLevels" :rows="5" animated />
         <el-empty v-else-if="!levelConfigs.length" description="暂无等级配置" :image-size="60" />
         <div v-else class="level-table">
           <!-- 表头 -->
           <div class="level-table-head">
+            <span class="lcol-drag"></span>
             <span class="lcol-badge"></span>
             <span class="lcol-name">名称</span>
             <span class="lcol-score">积分范围</span>
@@ -127,75 +142,94 @@
             <span class="lcol-actions"></span>
           </div>
 
-          <template v-for="level in levelConfigs" :key="level.id">
-            <!-- 只读行 -->
-            <div v-if="editingLevelId !== level.id" class="level-row" @click="startEdit(level)">
-              <div class="lcol-badge">
-                <span class="lv-badge" :style="{ background: level.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
-              </div>
-              <div class="lcol-name">{{ level.name }}</div>
-              <div class="lcol-score">
-                <span class="score-range">{{ level.min_score }} – {{ level.max_score != null ? level.max_score : '∞' }}</span>
-              </div>
-              <div class="lcol-color">
-                <span class="color-swatch" :style="{ background: level.bg_color || '#9CA3AF' }"></span>
-                <span class="color-hex">{{ level.bg_color || '—' }}</span>
-              </div>
-              <div class="lcol-icon">
-                <img v-if="level.icon_url" :src="level.icon_url" class="icon-thumb" @error="$event.target.style.opacity=0" />
-                <span v-else class="no-icon">—</span>
-              </div>
-              <div class="lcol-actions">
-                <el-button size="small" plain @click.stop="startEdit(level)">
-                  <el-icon><Edit /></el-icon> 编辑
-                </el-button>
-              </div>
-            </div>
-
-            <!-- 编辑行 -->
-            <div v-else class="level-row level-row-edit">
-              <div class="edit-panel">
-                <div class="edit-panel-top">
-                  <span class="lv-badge" :style="{ background: editForm.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
-                  <el-form-item label="名称" class="ef-item">
-                    <el-input v-model="editForm.name" style="width: 130px;" />
-                  </el-form-item>
-                  <el-form-item label="最低积分" class="ef-item">
-                    <el-input-number v-model="editForm.min_score" :min="0" :step="1" style="width: 110px;" controls-position="right" />
-                  </el-form-item>
-                  <el-form-item label="最高积分" class="ef-item">
-                    <el-input-number v-model="editForm.max_score" :min="0" :step="1" style="width: 110px;" controls-position="right" placeholder="无上限" />
-                  </el-form-item>
-                  <el-form-item label="主题色" class="ef-item">
-                    <div class="color-pair">
-                      <el-color-picker v-model="editForm.bg_color" size="small" />
-                      <el-input v-model="editForm.bg_color" placeholder="#9CA3AF" style="width: 86px;" />
-                    </div>
-                  </el-form-item>
+          <draggable
+            v-model="levelConfigs"
+            item-key="id"
+            handle=".drag-handle"
+            ghost-class="ghost-row"
+            @start="isDragging = true"
+            @end="onDragEnd"
+          >
+            <template #item="{ element: level }">
+              <div>
+                <!-- 只读行 -->
+                <div v-if="editingLevelId !== level.id" class="level-row" @click="startEdit(level)">
+                  <div class="lcol-drag drag-handle" @click.stop>
+                    <el-icon><Rank /></el-icon>
+                  </div>
+                  <div class="lcol-badge">
+                    <span class="lv-badge" :style="{ background: level.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
+                  </div>
+                  <div class="lcol-name">{{ level.name }}</div>
+                  <div class="lcol-score">
+                    <span class="score-range">{{ level.min_score }} – {{ level.max_score != null ? level.max_score : '∞' }}</span>
+                  </div>
+                  <div class="lcol-color">
+                    <span class="color-swatch" :style="{ background: level.bg_color || '#9CA3AF' }"></span>
+                    <span class="color-hex">{{ level.bg_color || '—' }}</span>
+                  </div>
+                  <div class="lcol-icon">
+                    <img v-if="level.icon_url" :src="level.icon_url" class="icon-thumb" @error="$event.target.style.opacity=0" />
+                    <span v-else class="no-icon">—</span>
+                  </div>
+                  <div class="lcol-actions">
+                    <el-tooltip content="预览">
+                      <el-button size="small" circle @click.stop="openPreview(level)">
+                        <el-icon><View /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                    <el-button size="small" plain @click.stop="startEdit(level)">
+                      <el-icon><Edit /></el-icon> 编辑
+                    </el-button>
+                  </div>
                 </div>
-                <div class="edit-panel-bottom">
-                  <el-form-item label="图标 URL" class="ef-item ef-url">
-                    <div class="icon-url-row">
-                      <el-input v-model="editForm.icon_url" placeholder="https://example.com/level.png" clearable>
-                        <template #prefix><el-icon><Picture /></el-icon></template>
-                      </el-input>
-                      <img
-                        v-if="editForm.icon_url"
-                        :src="editForm.icon_url"
-                        class="icon-preview-sm"
-                        @error="$event.target.style.opacity=0"
-                        @load="$event.target.style.opacity=1"
-                      />
+
+                <!-- 编辑行 -->
+                <div v-else class="level-row level-row-edit">
+                  <div class="edit-panel">
+                    <div class="edit-panel-top">
+                      <span class="lv-badge" :style="{ background: editForm.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
+                      <el-form-item label="名称" class="ef-item">
+                        <el-input v-model="editForm.name" style="width: 130px;" />
+                      </el-form-item>
+                      <el-form-item label="最低积分" class="ef-item">
+                        <el-input-number v-model="editForm.min_score" :min="0" :step="1" style="width: 110px;" controls-position="right" />
+                      </el-form-item>
+                      <el-form-item label="最高积分" class="ef-item">
+                        <el-input-number v-model="editForm.max_score" :min="0" :step="1" style="width: 110px;" controls-position="right" placeholder="无上限" />
+                      </el-form-item>
+                      <el-form-item label="主题色" class="ef-item">
+                        <div class="color-pair">
+                          <el-color-picker v-model="editForm.bg_color" size="small" />
+                          <el-input v-model="editForm.bg_color" placeholder="#9CA3AF" style="width: 86px;" />
+                        </div>
+                      </el-form-item>
                     </div>
-                  </el-form-item>
-                  <div class="edit-btns">
-                    <el-button @click="cancelEdit">取消</el-button>
-                    <el-button type="primary" :loading="savingLevelId === level.id" @click="saveLevel(level)">保存</el-button>
+                    <div class="edit-panel-bottom">
+                      <el-form-item label="图标 URL" class="ef-item ef-url">
+                        <div class="icon-url-row">
+                          <el-input v-model="editForm.icon_url" placeholder="https://example.com/level.png" clearable>
+                            <template #prefix><el-icon><Picture /></el-icon></template>
+                          </el-input>
+                          <img
+                            v-if="editForm.icon_url"
+                            :src="editForm.icon_url"
+                            class="icon-preview-sm"
+                            @error="$event.target.style.opacity=0"
+                            @load="$event.target.style.opacity=1"
+                          />
+                        </div>
+                      </el-form-item>
+                      <div class="edit-btns">
+                        <el-button @click="cancelEdit">取消</el-button>
+                        <el-button type="primary" :loading="savingLevelId === level.id" @click="saveLevel(level)">保存</el-button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </template>
+            </template>
+          </draggable>
         </div>
       </div>
 
@@ -230,6 +264,48 @@
         </el-form>
       </div>
     </div>
+
+    <!-- Import Dialog -->
+    <el-dialog v-model="showImportDialog" title="导入等级配置" width="600px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="JSON 数据">
+          <el-input
+            v-model="importJsonText"
+            type="textarea"
+            :rows="10"
+            placeholder="粘贴导出的 JSON 数据..."
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="importReplaceExisting">
+            替换现有配置（删除所有现有等级后导入）
+          </el-checkbox>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showImportDialog = false">取消</el-button>
+        <el-button type="primary" :loading="isImporting" @click="importLevels">
+          导入
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Preview Dialog -->
+    <el-dialog v-model="showPreviewDialog" title="等级预览" width="400px" align-center>
+      <div v-if="previewLevel" class="level-preview">
+        <div class="preview-badge" :style="{ background: previewLevel.bg_color || '#9CA3AF' }">
+          <img v-if="previewLevel.icon_url" :src="previewLevel.icon_url" class="preview-icon" @error="$event.target.style.display='none'" />
+          <div class="preview-level-text">Lv.{{ previewLevel.level }}</div>
+        </div>
+        <h2 class="preview-name">{{ previewLevel.name }}</h2>
+        <p class="preview-score">
+          积分范围: {{ previewLevel.min_score }} – {{ previewLevel.max_score ?? '∞' }}
+        </p>
+        <p v-if="previewLevel.description" class="preview-desc">
+          {{ previewLevel.description }}
+        </p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -238,7 +314,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useApiStore } from '@/stores/api'
 import { levelsApi } from '@/api/services'
-import { Setting, Bell, TrendCharts, Lock, Warning, InfoFilled, Picture, Edit } from '@element-plus/icons-vue'
+import draggable from 'vuedraggable'
+import { Setting, Bell, TrendCharts, Lock, Warning, InfoFilled, Picture, Edit, Download, Upload, Rank, View, Loading } from '@element-plus/icons-vue'
 
 const store = useApiStore()
 
@@ -248,6 +325,20 @@ const savingLevelId = ref(null)
 const savingGeneral = ref(false)
 const savingMaintenance = ref(false)
 const savingSecurity = ref(false)
+
+// Drag state
+const isDragging = ref(false)
+const isSavingOrder = ref(false)
+
+// Import/Export state
+const showImportDialog = ref(false)
+const importJsonText = ref('')
+const importReplaceExisting = ref(false)
+const isImporting = ref(false)
+
+// Preview state
+const showPreviewDialog = ref(false)
+const previewLevel = ref(null)
 
 const editingLevelId = ref(null)
 const editForm = reactive({
@@ -385,6 +476,91 @@ async function saveSecuritySettings() {
   }
 }
 
+// Export levels to JSON file
+async function exportLevels() {
+  try {
+    const res = await levelsApi.export()
+    const levels = res.data?.levels || res.data || []
+    const jsonStr = JSON.stringify(levels, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `level-configs-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败')
+  }
+}
+
+// Import levels from JSON
+async function importLevels() {
+  if (!importJsonText.value.trim()) {
+    ElMessage.warning('请输入 JSON 数据')
+    return
+  }
+
+  let levels
+  try {
+    levels = JSON.parse(importJsonText.value)
+    if (!Array.isArray(levels)) {
+      ElMessage.error('JSON 格式错误：应为数组')
+      return
+    }
+  } catch (e) {
+    ElMessage.error('JSON 格式错误')
+    return
+  }
+
+  isImporting.value = true
+  try {
+    await levelsApi.import({
+      levels,
+      replace_existing: importReplaceExisting.value
+    })
+    ElMessage.success('导入成功')
+    showImportDialog.value = false
+    importJsonText.value = ''
+    importReplaceExisting.value = false
+    await loadLevels()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '导入失败')
+  } finally {
+    isImporting.value = false
+  }
+}
+
+// Handle drag end - save new order
+async function onDragEnd() {
+  if (isDragging.value) return
+
+  // Build level_orders map from current order
+  const levelOrders = {}
+  levelConfigs.value.forEach((level, index) => {
+    levelOrders[level.level] = index
+  })
+
+  isSavingOrder.value = true
+  try {
+    await levelsApi.reorder(levelOrders)
+    ElMessage.success('等级排序已保存')
+  } catch (e) {
+    ElMessage.error('保存排序失败')
+    // Reload to reset order
+    await loadLevels()
+  } finally {
+    isSavingOrder.value = false
+  }
+}
+
+// Open preview dialog
+function openPreview(level) {
+  previewLevel.value = level
+  showPreviewDialog.value = true
+}
+
 onMounted(() => {
   loadSettings()
   loadLevels()
@@ -453,7 +629,8 @@ $col-name:  1fr;
 $col-score: 110px;
 $col-color: 100px;
 $col-icon:  48px;
-$col-act:   72px;
+$col-act:   100px;
+$col-drag:  32px;
 
 .level-table {
   border: 1px solid $border-color;
@@ -464,7 +641,7 @@ $col-act:   72px;
 .level-table-head,
 .level-row {
   display: grid;
-  grid-template-columns: $col-badge $col-name $col-score $col-color $col-icon $col-act;
+  grid-template-columns: $col-drag $col-badge $col-name $col-score $col-color $col-icon $col-act;
   align-items: center;
   gap: 12px;
   padding: 0 16px;
@@ -556,7 +733,50 @@ $col-act:   72px;
   color: $text-secondary;
 }
 
-.lcol-actions { display: flex; justify-content: flex-end; }
+.lcol-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+// ── Drag & Drop ─────────────────────────────────────────────────────────────
+
+.level-table-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.saving-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $text-secondary;
+  margin-left: auto;
+
+  .is-loading {
+    animation: spin 1s linear infinite;
+  }
+}
+
+.lcol-drag {
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: $text-tertiary;
+  transition: color 0.15s;
+
+  &:hover { color: $primary-color; }
+  &:active { cursor: grabbing; }
+}
+
+.ghost-row {
+  opacity: 0.5;
+  background: rgba(79, 70, 229, 0.1);
+}
 
 // ── Edit Panel ───────────────────────────────────────────────────────────────
 
@@ -621,5 +841,63 @@ $col-act:   72px;
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+// ── Level Preview ─────────────────────────────────────────────────────────────
+
+.level-preview {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.preview-badge {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $shadow-md;
+}
+
+.preview-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+.preview-level-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.preview-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-primary;
+  margin-bottom: 12px;
+}
+
+.preview-score {
+  font-size: 14px;
+  color: $text-secondary;
+  margin-bottom: 8px;
+}
+
+.preview-desc {
+  font-size: 14px;
+  color: $text-secondary;
+  line-height: 1.6;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
