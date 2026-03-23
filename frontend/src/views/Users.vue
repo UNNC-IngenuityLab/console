@@ -27,6 +27,12 @@
           <el-option label="全部等级" value="" />
           <el-option v-for="i in 10" :key="i" :label="`等级 ${i}`" :value="i" />
         </el-select>
+        <el-select v-model="sortBy" placeholder="排序" style="width: 140px;" @change="handleSearch">
+          <el-option label="积分降序" value="total_points" />
+          <el-option label="积分升序" value="total_points_asc" />
+          <el-option label="等级降序" value="level" />
+          <el-option label="注册时间" value="created_at" />
+        </el-select>
       </div>
     </div>
 
@@ -228,6 +234,7 @@ const store = useApiStore()
 
 const searchQuery = ref('')
 const levelFilter = ref('')
+const sortBy = ref('total_points')
 const showEditDialog = ref(false)
 const showProfileDialog = ref(false)
 const editingUser = ref(null)
@@ -316,23 +323,80 @@ function handleSearch() {
   const params = {}
   if (searchQuery.value) params.search = searchQuery.value
   if (levelFilter.value) params.level = levelFilter.value
+
+  // Handle sorting
+  if (sortBy.value === 'total_points') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'total_points_asc') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'ASC'
+  } else if (sortBy.value === 'level') {
+    params.sort_by = 'level'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'created_at') {
+    params.sort_by = 'created_at'
+    params.sort_order = 'DESC'
+  }
+
   store.usersPagination.page = 1
   store.fetchUsers(params)
 }
 
 function handlePageChange(page) {
   store.usersPagination.page = page
-  store.fetchUsers({ search: searchQuery.value || undefined, level: levelFilter.value || undefined })
+  const params = {
+    search: searchQuery.value || undefined,
+    level: levelFilter.value || undefined,
+  }
+
+  // Handle sorting
+  if (sortBy.value === 'total_points') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'total_points_asc') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'ASC'
+  } else if (sortBy.value === 'level') {
+    params.sort_by = 'level'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'created_at') {
+    params.sort_by = 'created_at'
+    params.sort_order = 'DESC'
+  }
+
+  store.fetchUsers(params)
 }
 
 function handleSizeChange(size) {
   store.usersPagination.pageSize = size
   store.usersPagination.page = 1
-  store.fetchUsers()
+  const params = {
+    search: searchQuery.value || undefined,
+    level: levelFilter.value || undefined,
+  }
+
+  // Handle sorting
+  if (sortBy.value === 'total_points') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'total_points_asc') {
+    params.sort_by = 'total_points'
+    params.sort_order = 'ASC'
+  } else if (sortBy.value === 'level') {
+    params.sort_by = 'level'
+    params.sort_order = 'DESC'
+  } else if (sortBy.value === 'created_at') {
+    params.sort_by = 'created_at'
+    params.sort_order = 'DESC'
+  }
+
+  store.fetchUsers(params)
 }
 
 onMounted(() => {
-  store.fetchUsers()
+  // Default sort by total_points descending
+  store.fetchUsers({ sort_by: 'total_points', sort_order: 'DESC' })
 })
 </script>
 
