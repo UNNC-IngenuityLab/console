@@ -141,27 +141,18 @@ class ActivityCreate(BaseModel):
     """Request to create an activity."""
     name: str = Field(..., min_length=1, max_length=255)
     venue: str = Field(..., min_length=1, max_length=255)
-    date_range: str = Field(..., min_length=1, max_length=100)
-    start_date: str | None = None
-    end_date: str | None = None
+    start_date: datetime = Field(..., description="Activity start datetime")
+    end_date: datetime = Field(..., description="Activity end datetime")
     total_point: Decimal = Field(default=Decimal("0.00"), ge=0, le=100)
     sub_activities: list[SubActivityCreate] = []
-
-    @field_validator("start_date", "end_date", mode="before")
-    @classmethod
-    def parse_date(cls, v):
-        if v is None or v == "":
-            return None
-        return str(v)
 
 
 class ActivityUpdate(BaseModel):
     """Request to update an activity."""
     name: str | None = Field(None, min_length=1, max_length=255)
     venue: str | None = Field(None, min_length=1, max_length=255)
-    date_range: str | None = Field(None, min_length=1, max_length=100)
-    start_date: str | None = None
-    end_date: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     total_point: Decimal | None = Field(None, ge=0, le=100)
     is_active: bool | None = None
 
@@ -173,7 +164,6 @@ class ActivityResponse(BaseResponse):
     creator_openid: str | None
     name: str
     venue: str
-    date_range: str
     start_date: str | None
     end_date: str | None
     total_point: Decimal

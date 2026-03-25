@@ -185,7 +185,7 @@
     </el-dialog>
 
     <!-- User Profile Dialog -->
-    <el-dialog v-model="showProfileDialog" title="用户详情" width="500px">
+    <el-dialog v-model="showProfileDialog" title="用户详情" width="560px">
       <div v-if="selectedUser" class="user-profile">
         <div class="profile-header">
           <div class="profile-info">
@@ -217,6 +217,45 @@
             <span class="detail-value">{{ selectedUser.student_id }}</span>
           </div>
         </div>
+
+        <!-- Activity Records -->
+        <div class="activity-records">
+          <div class="activity-records-title">活动记录</div>
+          <div v-if="loadingActivities" class="activity-loading">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            加载中...
+          </div>
+          <div v-else-if="userActivities.length === 0" class="activity-empty">
+            暂无活动记录
+          </div>
+          <div v-else class="activity-list">
+            <div
+              v-for="activity in userActivities"
+              :key="activity.id"
+              class="activity-item"
+            >
+              <div class="activity-item-left">
+                <el-tag
+                  :type="activity.is_completed ? 'success' : 'warning'"
+                  size="small"
+                  class="activity-status-tag"
+                >
+                  {{ activity.is_completed ? '已签到' : '已报名' }}
+                </el-tag>
+                <div class="activity-info">
+                  <div class="activity-name">{{ activity.activity_name }}</div>
+                  <div class="activity-meta">{{ activity.venue }} · {{ activity.date_range }}</div>
+                </div>
+              </div>
+              <div class="activity-item-right">
+                <div v-if="activity.is_completed" class="activity-points">
+                  +{{ activity.points_earned }} 分
+                </div>
+                <div class="activity-date">{{ formatDate(activity.registered_at) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </el-dialog>
   </div>
@@ -226,8 +265,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useApiStore } from '@/stores/api'
+import { usersApi } from '@/api/services'
 import {
-  Search, Download, Calendar, Star, View, Delete, ArrowRight
+  Search, Download, Calendar, Star, View, Delete, ArrowRight, Loading
 } from '@element-plus/icons-vue'
 
 const store = useApiStore()
@@ -239,6 +279,8 @@ const showEditDialog = ref(false)
 const showProfileDialog = ref(false)
 const editingUser = ref(null)
 const selectedUser = ref(null)
+const userActivities = ref([])
+const loadingActivities = ref(false)
 const newPoints = ref(0)
 const adjustmentReason = ref('')
 const saving = ref(false)
@@ -302,9 +344,25 @@ async function savePoints() {
   }
 }
 
-function viewProfile(user) {
+async function viewProfile(user) {
   selectedUser.value = user
+  userActivities.value = []
   showProfileDialog.value = true
+  loadingActivities.value = true
+  try {
+    const res = await usersApi.getActivities(user.id)
+    userActivities.value = res.data || []
+  } catch (e) {
+    userActivities.value = []
+  } finally {
+    loadingActivities.value = false
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 async function deleteUser(user) {
@@ -688,5 +746,101 @@ onMounted(() => {
     font-weight: 500;
     color: $text-primary;
   }
+}
+
+// Activity Records
+.activity-records {
+  margin-top: 24px;
+}
+
+.activity-records-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-secondary;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $border-color;
+}
+
+.activity-loading,
+.activity-empty {
+  text-align: center;
+  color: $text-tertiary;
+  font-size: 13px;
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: $bg-primary;
+  border-radius: $border-radius;
+  gap: 12px;
+}
+
+.activity-item-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-status-tag {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.activity-info {
+  min-width: 0;
+}
+
+.activity-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: $text-tertiary;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-item-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.activity-points {
+  font-size: 13px;
+  font-weight: 600;
+  color: $success-color;
+}
+
+.activity-date {
+  font-size: 12px;
+  color: $text-tertiary;
+  margin-top: 2px;
 }
 </style>

@@ -32,6 +32,7 @@ import type {
   UIConfig,
   UIConfigGroup,
   UpdatePointsRequest,
+  UserActivity,
   UserDetail,
   UserListQuery,
   UserSummary,
@@ -93,6 +94,11 @@ export const usersApi = {
    * Delete user
    */
   delete: (id: string) => client.delete<ApiResponse>(`/api/v1/users/${id}`),
+
+  /**
+   * Get user's registered activities
+   */
+  getActivities: (id: string) => client.get<ApiResponse<UserActivity[]>>(`/api/v1/users/${id}/activities`),
 }
 
 // =============================================================================

@@ -117,12 +117,9 @@ async def create_activity(
         "creator_openid": current_user.get("openid", ""),
         "name": data.name,
         "venue": data.venue,
-        "date_range": data.date_range,
         "start_date": data.start_date,
         "end_date": data.end_date,
         "total_point": data.total_point,
-        "sign_up_count": 0,
-        "completed_count": 0,
         "is_active": 1,
     }
 
@@ -150,7 +147,8 @@ async def create_activity(
         new_value={
             "name": data.name,
             "venue": data.venue,
-            "date_range": data.date_range,
+            "start_date": str(data.start_date),
+            "end_date": str(data.end_date),
             "total_point": str(data.total_point),
             "sub_activities_count": len(data.sub_activities),
         },
@@ -184,7 +182,7 @@ async def update_activity(
     old_values = {}
     new_values = {}
 
-    for field in ["name", "venue", "date_range", "start_date", "end_date", "total_point", "is_active"]:
+    for field in ["name", "venue", "start_date", "end_date", "total_point", "is_active"]:
         value = getattr(data, field)
         if value is not None:
             update_data[field] = value
@@ -282,9 +280,6 @@ async def create_sub_activity(
 
     sub_id = await sub_activity_repo.create_sub_activity(sub_data)
 
-    # Update activity total points
-    await activity_repo.update_signup_counts(activity_id)
-
     return ApiResponse(
         message="Sub-activity created successfully",
         data={"sub_activity_id": sub_id},
@@ -336,16 +331,10 @@ async def delete_sub_activity(
     if sub_activity is None:
         raise NotFoundException("Sub-activity not found")
 
-    activity_id = sub_activity.get("activity_id")
     success = await sub_activity_repo.delete_sub_activity(sub_activity_id)
 
     if not success:
         raise ValidationException("Failed to delete sub-activity")
-
-    # Update activity total points
-    if activity_id:
-        activity_repo = ActivityRepository(conn)
-        await activity_repo.update_signup_counts(activity_id)
 
     return ApiResponse(message="Sub-activity deleted successfully")
 

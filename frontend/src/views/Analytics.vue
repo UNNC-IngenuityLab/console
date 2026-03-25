@@ -51,7 +51,7 @@
           <el-icon :size="24"><TrendCharts /></el-icon>
         </div>
         <div class="summary-content">
-          <div class="summary-value">{{ store.dashboardStats ? (store.dashboardStats.avg_completion_rate * 100).toFixed(1) : '-' }}%</div>
+          <div class="summary-value">{{ store.dashboardStats ? store.dashboardStats.avg_completion_rate.toFixed(1) : '-' }}%</div>
           <div class="summary-label">平均完成率</div>
         </div>
       </div>
@@ -76,10 +76,10 @@
             </div>
             <div class="stat-progress">
               <el-progress
-                :percentage="Math.round(stat.completion_rate * 100)"
+                :percentage="Math.round(stat.completion_rate)"
                 :stroke-width="10"
                 :show-text="true"
-                :color="getProgressColor(Math.round(stat.completion_rate * 100))"
+                :color="getProgressColor(Math.round(stat.completion_rate))"
               />
             </div>
           </div>

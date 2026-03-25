@@ -21,7 +21,6 @@ def _mock_activity_repo(**overrides):
     repo.create_activity = AsyncMock(return_value=MOCK_ACTIVITY["id"])
     repo.update_activity = AsyncMock(return_value=True)
     repo.delete_activity = AsyncMock(return_value=True)
-    repo.update_signup_counts = AsyncMock(return_value=True)
     for k, v in overrides.items():
         setattr(repo, k, v)
     return repo
@@ -123,9 +122,8 @@ class TestCreateActivity:
     VALID_PAYLOAD = {
         "name": "New Activity",
         "venue": "Room 101",
-        "date_range": "2024-03-01 ~ 2024-03-02",
-        "start_date": "2024-03-01",
-        "end_date": "2024-03-02",
+        "start_date": "2024-03-01T09:00:00",
+        "end_date": "2024-03-01T17:00:00",
         "total_point": "10.00",
         "sub_activities": [
             {"name": "Sub A", "point": "5.00", "sort_order": 0},

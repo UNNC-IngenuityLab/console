@@ -55,7 +55,7 @@
           <template #default="{ row }">
             <div class="date-cell">
               <el-icon><Calendar /></el-icon>
-              {{ row.date_range }}
+              {{ formatActivityDateRange(row.start_date, row.end_date) }}
             </div>
           </template>
         </el-table-column>
@@ -145,9 +145,14 @@
 
         <div class="form-row">
           <el-form-item label="日期范围" required class="flex-1">
-            <el-input
-              v-model="activityForm.date_range"
-              placeholder="如: 2025.04.22 09:00~17:00"
+            <el-date-picker
+              v-model="dateRangePicker"
+              type="datetimerange"
+              range-separator="~"
+              start-placeholder="开始时间"
+              end-placeholder="结束时间"
+              format="YYYY.MM.DD HH:mm"
+              style="width: 100%;"
             />
           </el-form-item>
           <el-form-item label="地点" required class="flex-1">
@@ -209,7 +214,7 @@
           <h4>{{ qrActivity?.name }}</h4>
           <p>扫码签到参与此活动</p>
           <div class="qr-meta">
-            <span><el-icon><Calendar /></el-icon> {{ qrActivity?.date_range }}</span>
+            <span><el-icon><Calendar /></el-icon> {{ formatActivityDateRange(qrActivity?.start_date, qrActivity?.end_date) }}</span>
             <span><el-icon><Location /></el-icon> {{ qrActivity?.venue }}</span>
           </div>
           <div v-if="qrExpiresAt" class="qr-expires">
@@ -265,12 +270,25 @@ const saving = ref(false)
 const loadingEdit = ref(false)
 let originalSubActivities = []
 
+const dateRangePicker = ref(null)
+
 const activityForm = reactive({
   name: '',
-  date_range: '',
   venue: '',
   subActivities: [{ name: '', point: 5 }]
 })
+
+function formatActivityDateRange(start, end) {
+  if (!start) return '—'
+  const pad = n => String(n).padStart(2, '0')
+  const s = new Date(start)
+  const e = end ? new Date(end) : null
+  const fmtDate = d => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+  const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (!e) return `${fmtDate(s)} ${fmtTime(s)}`
+  if (fmtDate(s) === fmtDate(e)) return `${fmtDate(s)} ${fmtTime(s)}~${fmtTime(e)}`
+  return `${fmtDate(s)} ${fmtTime(s)} ~ ${fmtDate(e)} ${fmtTime(e)}`
+}
 
 const totalPoints = computed(() => {
   return activityForm.subActivities.reduce((sum, sub) => sum + (sub.point || 0), 0)
@@ -320,8 +338,10 @@ async function showSubTasks(activity) {
 async function editActivity(activity) {
   editingActivity.value = activity
   activityForm.name = activity.name
-  activityForm.date_range = activity.date_range
   activityForm.venue = activity.venue
+  dateRangePicker.value = activity.start_date && activity.end_date
+    ? [new Date(activity.start_date), new Date(activity.end_date)]
+    : null
   activityForm.subActivities = [{ name: '', point: 5 }]
   originalSubActivities = []
   showCreateDialog.value = true
@@ -341,7 +361,7 @@ async function editActivity(activity) {
 }
 
 async function saveActivity() {
-  if (!activityForm.name || !activityForm.date_range || !activityForm.venue) {
+  if (!activityForm.name || !dateRangePicker.value || !activityForm.venue) {
     ElMessage.warning('请填写所有必填项')
     return
   }
@@ -353,8 +373,9 @@ async function saveActivity() {
     if (editingActivity.value) {
       const success = await store.updateActivity(editingActivity.value.id, {
         name: activityForm.name,
-        date_range: activityForm.date_range,
         venue: activityForm.venue,
+        start_date: dateRangePicker.value[0].toISOString(),
+        end_date: dateRangePicker.value[1].toISOString(),
         total_point: totalPoints.value
       })
 
@@ -382,8 +403,9 @@ async function saveActivity() {
     } else {
       const success = await store.createActivity({
         name: activityForm.name,
-        date_range: activityForm.date_range,
         venue: activityForm.venue,
+        start_date: dateRangePicker.value[0].toISOString(),
+        end_date: dateRangePicker.value[1].toISOString(),
         total_point: totalPoints.value,
         sub_activities: validSubs.map((s, i) => ({ name: s.name, point: s.point, sort_order: i }))
       })
@@ -411,8 +433,8 @@ async function deleteActivity(activity) {
 function resetForm() {
   editingActivity.value = null
   activityForm.name = ''
-  activityForm.date_range = ''
   activityForm.venue = ''
+  dateRangePicker.value = null
   activityForm.subActivities = [{ name: '', point: 5 }]
 }
 

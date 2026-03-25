@@ -70,6 +70,18 @@ export interface UpdatePointsRequest {
   reason: string
 }
 
+export interface UserActivity {
+  id: string
+  activity_id: string
+  activity_name: string
+  venue: string
+  date_range: string
+  is_completed: boolean
+  points_earned: number
+  registered_at: string
+  completed_at: string | null
+}
+
 // =============================================================================
 // Activity Types
 // =============================================================================

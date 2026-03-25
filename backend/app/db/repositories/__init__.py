@@ -185,6 +185,24 @@ class UserRepository(BaseRepository):
         """Delete a user (cascades to related records)."""
         return await self.delete("users", "id", user_id)
 
+    async def get_user_activities(self, user_id: str) -> list[dict]:
+        """Get all registered activities for a user."""
+        query = """
+            SELECT
+                ra.id,
+                ra.activity_id,
+                ra.activity_name,
+                ra.venue,
+                ra.is_completed,
+                ra.points_earned,
+                ra.registered_at,
+                ra.completed_at
+            FROM registered_activities ra
+            WHERE ra.user_id = %s
+            ORDER BY ra.registered_at DESC
+        """
+        return await self.fetch_all(query, user_id)
+
 
 class ActivityRepository(BaseRepository):
     """Repository for activity operations."""
@@ -255,24 +273,6 @@ class ActivityRepository(BaseRepository):
         """Delete an activity (cascades to sub-activities and registrations)."""
         return await self.delete("activities", "id", activity_id)
 
-    async def update_signup_counts(self, activity_id: str) -> None:
-        """Recalculate signup and completion counts for an activity."""
-        query = """
-            UPDATE activities a
-            SET
-                sign_up_count = (
-                    SELECT COUNT(*)
-                    FROM registered_activities
-                    WHERE activity_id = %s
-                ),
-                completed_count = (
-                    SELECT COUNT(*)
-                    FROM registered_activities
-                    WHERE activity_id = %s AND is_completed = 1
-                )
-            WHERE id = %s
-        """
-        await self.execute(query, activity_id, activity_id, activity_id)
 
 
 class SubActivityRepository(BaseRepository):

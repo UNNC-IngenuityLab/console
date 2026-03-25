@@ -6,8 +6,10 @@ SELECT_USER_FIELDS = """
 """
 
 SELECT_ACTIVITY_FIELDS = """
-    id, activity_id, creator_openid, name, venue, date_range, start_date, end_date,
-    total_point, sign_up_count, completed_count, is_active, created_at, updated_at,
+    id, activity_id, creator_openid, name, venue, start_date, end_date,
+    total_point, is_active, created_at, updated_at,
+    (SELECT COUNT(*) FROM registered_activities ra WHERE ra.activity_id = activities.id) AS sign_up_count,
+    (SELECT COUNT(*) FROM registered_activities ra WHERE ra.activity_id = activities.id AND ra.is_completed = 1) AS completed_count,
     (SELECT COUNT(*) FROM sub_activities sa WHERE sa.activity_id = activities.id) AS sub_activity_count
 """
 

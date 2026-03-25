@@ -185,6 +185,23 @@ async def update_user(
     return ApiResponse(message="User updated successfully")
 
 
+@router.get("/{user_id}/activities", response_model=ApiResponse)
+async def get_user_activities(
+    user_id: str,
+    current_user: Annotated[dict, Depends(get_admin_user)] = None,
+    user_repo: Annotated[UserRepository, Depends(get_user_repo)] = None,
+) -> ApiResponse:
+    """Get all registered activities for a user."""
+    user = await user_repo.find_by_id(user_id)
+
+    if user is None:
+        raise NotFoundException("User not found")
+
+    activities = await user_repo.get_user_activities(user_id)
+
+    return ApiResponse(data=activities)
+
+
 @router.delete("/{user_id}", response_model=ApiResponse)
 async def delete_user(
     user_id: str,

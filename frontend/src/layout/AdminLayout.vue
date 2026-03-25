@@ -65,9 +65,9 @@
           </div>
         </div>
         <div class="header-right">
-          <el-button :icon="Bell" circle>
-            <el-badge :value="3" :max="99" class="notification-indicator" />
-          </el-button>
+          <el-badge :value="activeNotifications" :max="99" class="notification-badge">
+            <el-button :icon="Bell" circle />
+          </el-badge>
           <el-button :icon="FullScreen" circle @click="toggleFullscreen" />
           <div class="header-divider"></div>
           <el-dropdown trigger="click" placement="bottom-end">
@@ -117,6 +117,9 @@ const router = useRouter()
 const route = useRoute()
 
 const isCollapsed = ref(false)
+
+const activeNotifications = ref(0)
+
 
 const menuItems = [
   { path: '/dashboard', label: '工作台', icon: 'Odometer' },
@@ -400,15 +403,10 @@ function logout() {
   gap: 8px;
 }
 
-.notification-indicator {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-
+.notification-badge {
   :deep(.el-badge__content) {
     background: $danger-color;
     border: none;
-    transform: scale(0.8);
   }
 }
 

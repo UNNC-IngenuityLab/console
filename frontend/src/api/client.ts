@@ -17,8 +17,8 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-// 从环境变量读取 API 地址，默认为 localhost:8000
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// 从环境变量读取 API 地址，开发环境默认走同源代理 /api（避免 CORS）
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 // 请求超时时间（可通过环境变量配置）
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '30000', 10)

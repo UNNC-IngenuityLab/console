@@ -187,43 +187,72 @@
                 <!-- 编辑行 -->
                 <div v-else class="level-row level-row-edit">
                   <div class="edit-panel">
-                    <div class="edit-panel-top">
-                      <span class="lv-badge" :style="{ background: editForm.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
-                      <el-form-item label="名称" class="ef-item">
-                        <el-input v-model="editForm.name" style="width: 130px;" />
-                      </el-form-item>
-                      <el-form-item label="最低积分" class="ef-item">
-                        <el-input-number v-model="editForm.min_score" :min="0" :step="1" style="width: 110px;" controls-position="right" />
-                      </el-form-item>
-                      <el-form-item label="最高积分" class="ef-item">
-                        <el-input-number v-model="editForm.max_score" :min="0" :step="1" style="width: 110px;" controls-position="right" placeholder="无上限" />
-                      </el-form-item>
-                      <el-form-item label="主题色" class="ef-item">
-                        <div class="color-pair">
-                          <el-color-picker v-model="editForm.bg_color" size="small" />
-                          <el-input v-model="editForm.bg_color" placeholder="#9CA3AF" style="width: 86px;" />
-                        </div>
-                      </el-form-item>
-                    </div>
-                    <div class="edit-panel-bottom">
-                      <el-form-item label="图标 URL" class="ef-item ef-url">
-                        <div class="icon-url-row">
-                          <el-input v-model="editForm.icon_url" placeholder="https://example.com/level.png" clearable>
-                            <template #prefix><el-icon><Picture /></el-icon></template>
-                          </el-input>
-                          <img
-                            v-if="editForm.icon_url"
-                            :src="editForm.icon_url"
-                            class="icon-preview-sm"
-                            @error="$event.target.style.opacity=0"
-                            @load="$event.target.style.opacity=1"
-                          />
-                        </div>
-                      </el-form-item>
-                      <div class="edit-btns">
-                        <el-button @click="cancelEdit">取消</el-button>
-                        <el-button type="primary" :loading="savingLevelId === level.id" @click="saveLevel(level)">保存</el-button>
+                    <div class="edit-grid">
+                      <!-- 左列：基本信息 -->
+                      <div class="edit-col-main">
+                        <el-form :model="editForm" label-position="left" class="edit-fields-row">
+                          <span class="lv-badge" :style="{ background: editForm.bg_color || '#9CA3AF' }">Lv.{{ level.level }}</span>
+                          <el-form-item label="名称" class="ef-item">
+                            <el-input v-model="editForm.name" style="width: 120px;" />
+                          </el-form-item>
+                          <el-form-item label="最低积分" class="ef-item">
+                            <el-input-number v-model="editForm.min_score" :min="0" :step="1" style="width: 100px;" controls-position="right" />
+                          </el-form-item>
+                          <el-form-item label="最高积分" class="ef-item">
+                            <el-input-number v-model="editForm.max_score" :min="0" :step="1" style="width: 100px;" controls-position="right" placeholder="无上限" />
+                          </el-form-item>
+                          <el-form-item label="主题色" class="ef-item">
+                            <div class="color-pair">
+                              <el-color-picker v-model="editForm.bg_color" size="small" />
+                              <el-input v-model="editForm.bg_color" placeholder="#9CA3AF" style="width: 86px;" />
+                            </div>
+                          </el-form-item>
+                        </el-form>
+                        <el-form-item label="图标 URL" class="ef-item ef-url-full">
+                          <div class="icon-url-row">
+                            <el-input v-model="editForm.icon_url" placeholder="https://example.com/level.png" clearable>
+                              <template #prefix><el-icon><Picture /></el-icon></template>
+                            </el-input>
+                            <img
+                              v-if="editForm.icon_url"
+                              :src="editForm.icon_url"
+                              class="icon-preview-sm"
+                              @error="$event.target.style.opacity=0"
+                              @load="$event.target.style.opacity=1"
+                            />
+                          </div>
+                        </el-form-item>
                       </div>
+
+                      <!-- 右列：描述 -->
+                      <div class="edit-col-desc">
+                        <el-form-item label="等级描述（中文）" class="ef-item ef-desc-full">
+                          <el-input
+                            v-model="editForm.description"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请输入等级描述..."
+                            maxlength="500"
+                            show-word-limit
+                          />
+                        </el-form-item>
+                        <el-form-item label="等级描述（英文）" class="ef-item ef-desc-full">
+                          <el-input
+                            v-model="editForm.description_en"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="Enter level description in English..."
+                            maxlength="500"
+                            show-word-limit
+                          />
+                        </el-form-item>
+                      </div>
+                    </div>
+
+                    <!-- 底部操作按钮 -->
+                    <div class="edit-actions">
+                      <el-button @click="cancelEdit">取消</el-button>
+                      <el-button type="primary" :loading="savingLevelId === level.id" @click="saveLevel(level)">保存</el-button>
                     </div>
                   </div>
                 </div>
@@ -347,6 +376,8 @@ const editForm = reactive({
   max_score: null,
   bg_color: null,
   icon_url: null,
+  description: '',
+  description_en: '',
 })
 
 function startEdit(level) {
@@ -356,6 +387,8 @@ function startEdit(level) {
   editForm.max_score = level.max_score != null ? Number(level.max_score) : null
   editForm.bg_color = level.bg_color || null
   editForm.icon_url = level.icon_url || null
+  editForm.description = level.description || ''
+  editForm.description_en = level.description_en || ''
 }
 
 function cancelEdit() {
@@ -416,6 +449,8 @@ async function saveLevel(level) {
       max_score: editForm.max_score ?? null,
       bg_color: editForm.bg_color || null,
       icon_url: editForm.icon_url || null,
+      description: editForm.description || null,
+      description_en: editForm.description_en || null,
     })
     // 更新本地数据
     Object.assign(level, {
@@ -424,6 +459,8 @@ async function saveLevel(level) {
       max_score: editForm.max_score,
       bg_color: editForm.bg_color,
       icon_url: editForm.icon_url,
+      description: editForm.description || null,
+      description_en: editForm.description_en || null,
     })
     ElMessage.success(`Lv.${level.level} 保存成功`)
     editingLevelId.value = null
@@ -641,7 +678,7 @@ $col-drag:  32px;
 .level-table-head,
 .level-row {
   display: grid;
-  grid-template-columns: $col-drag $col-badge $col-name $col-score $col-color $col-icon $col-act;
+  grid-template-columns: $col-drag $col-badge minmax(120px, $col-name) $col-score $col-color $col-icon $col-act;
   align-items: center;
   gap: 12px;
   padding: 0 16px;
@@ -659,13 +696,19 @@ $col-drag:  32px;
 }
 
 .level-row {
-  height: 52px;
+  min-height: 52px;
   border-bottom: 1px solid $border-color;
   cursor: pointer;
   transition: background 0.15s;
 
   &:last-child { border-bottom: none; }
   &:hover { background: rgba(79, 70, 229, 0.03); }
+}
+
+.lcol-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .level-row-edit {
@@ -783,15 +826,33 @@ $col-drag:  32px;
 .edit-panel {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.edit-col-main {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.edit-panel-top,
-.edit-panel-bottom {
+.edit-fields-row {
   display: flex;
-  align-items: flex-end;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.edit-col-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .ef-item {
@@ -799,15 +860,17 @@ $col-drag:  32px;
 
   :deep(.el-form-item__label) {
     font-size: 12px;
-    padding-bottom: 4px;
-    line-height: 1.4;
     color: $text-secondary;
+    white-space: nowrap;
   }
 }
 
-.ef-url {
-  flex: 1;
-  min-width: 260px;
+.ef-url-full {
+  width: 100%;
+}
+
+.ef-desc-full {
+  width: 100%;
 }
 
 .color-pair {
@@ -836,11 +899,12 @@ $col-drag:  32px;
   transition: opacity 0.2s;
 }
 
-.edit-btns {
+.edit-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
-  align-items: center;
-  flex-shrink: 0;
+  padding-top: 4px;
+  border-top: 1px solid $border-color;
 }
 
 // ── Level Preview ─────────────────────────────────────────────────────────────
