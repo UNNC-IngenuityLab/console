@@ -7,11 +7,9 @@ from typing import Annotated
 import aiomysql
 from fastapi import APIRouter, Depends, Query
 
-from app.db.repositories import UserRepository
 from app.dependencies import get_admin_user, get_db_connection
 from app.models import (
     ActivityStats,
-    AnalyticsQuery,
     ApiResponse,
     DashboardStats,
     LeaderboardEntry,
@@ -41,20 +39,55 @@ async def get_dashboard_stats(
         await cursor.execute("SELECT COUNT(*) as count FROM activities WHERE is_active = 1")
         active_activities = (await cursor.fetchone())["count"]
 
-        # Total signups
-        await cursor.execute("SELECT SUM(sign_up_count) as total FROM activities")
+        # Total signups（不依赖 activities.sign_up_count 字段）
+        await cursor.execute("""
+            SELECT COALESCE(SUM(t.sign_up_count), 0) AS total
+            FROM (
+                SELECT
+                    a.id,
+                    COUNT(DISTINCT ra.user_id) AS sign_up_count
+                FROM activities a
+                LEFT JOIN registered_activities ra ON a.id = ra.activity_id
+                WHERE a.is_active = 1
+                GROUP BY a.id
+            ) t
+        """)
         signups_result = await cursor.fetchone()
         total_signups = signups_result["total"] or 0
 
-        # Total completions
-        await cursor.execute("SELECT SUM(completed_count) as total FROM activities")
+        # Total completions（不依赖 activities.completed_count 字段）
+        await cursor.execute("""
+            SELECT COALESCE(SUM(t.completed_count), 0) AS total
+            FROM (
+                SELECT
+                    a.id,
+                    SUM(CASE WHEN ra.is_completed = 1 THEN 1 ELSE 0 END) AS completed_count
+                FROM activities a
+                LEFT JOIN registered_activities ra ON a.id = ra.activity_id
+                WHERE a.is_active = 1
+                GROUP BY a.id
+            ) t
+        """)
         completions_result = await cursor.fetchone()
         total_completions = completions_result["total"] or 0
 
-        # Average completion rate
+        # Average completion rate（按活动平均）
         await cursor.execute("""
-            SELECT AVG(completion_rate_percent) as avg_rate
-            FROM v_activity_stats
+            SELECT COALESCE(AVG(t.completion_rate), 0) AS avg_rate
+            FROM (
+                SELECT
+                    a.id,
+                    CASE
+                        WHEN COUNT(DISTINCT ra.user_id) > 0
+                        THEN ROUND(SUM(CASE WHEN ra.is_completed = 1 THEN 1 ELSE 0 END)
+                            / COUNT(DISTINCT ra.user_id) * 100, 2)
+                        ELSE 0
+                    END AS completion_rate
+                FROM activities a
+                LEFT JOIN registered_activities ra ON a.id = ra.activity_id
+                WHERE a.is_active = 1
+                GROUP BY a.id
+            ) t
         """)
         avg_result = await cursor.fetchone()
         avg_completion_rate = float(avg_result["avg_rate"] or 0)
@@ -85,18 +118,29 @@ async def get_activity_stats(
 ) -> ApiResponse:
     """Get activity completion statistics."""
     async with conn.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute(f"""
+        await cursor.execute(
+            """
             SELECT
-                id as activity_id,
-                name as activity_name,
-                actual_sign_up_count as sign_up_count,
-                actual_completed_count as completed_count,
-                completion_rate_percent as completion_rate,
-                total_point as total_points
-            FROM v_activity_stats
-            ORDER BY start_date DESC
-            LIMIT {limit}
-        """)
+                a.id as activity_id,
+                a.name as activity_name,
+                COUNT(DISTINCT ra.user_id) AS sign_up_count,
+                SUM(CASE WHEN ra.is_completed = 1 THEN 1 ELSE 0 END) AS completed_count,
+                CASE
+                    WHEN COUNT(DISTINCT ra.user_id) > 0
+                    THEN ROUND(SUM(CASE WHEN ra.is_completed = 1 THEN 1 ELSE 0 END)
+                        / COUNT(DISTINCT ra.user_id) * 100, 2)
+                    ELSE 0
+                END AS completion_rate,
+                a.total_point as total_points
+            FROM activities a
+            LEFT JOIN registered_activities ra ON a.id = ra.activity_id
+            WHERE a.is_active = 1
+            GROUP BY a.id, a.name, a.total_point, a.start_date
+            ORDER BY a.start_date DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
         rows = await cursor.fetchall()
 
     items = [

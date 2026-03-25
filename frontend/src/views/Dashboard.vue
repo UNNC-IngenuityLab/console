@@ -90,30 +90,6 @@
         </div>
       </div>
 
-      <!-- Latest Announcements -->
-      <div class="announcements card">
-        <div class="card-header">
-          <h3>最新公告</h3>
-          <el-button text type="primary" @click="$router.push('/announcements')">
-            查看全部 <el-icon><ArrowRight /></el-icon>
-          </el-button>
-        </div>
-        <div class="announcement-list">
-          <div
-            v-for="announcement in recentAnnouncements"
-            :key="announcement.id"
-            class="announcement-item"
-          >
-            <div class="announcement-dot"></div>
-            <div class="announcement-content">
-              <div class="announcement-title">{{ announcement.title }}</div>
-              <div class="announcement-date">{{ announcement.created_at?.split('T')[0] }}</div>
-            </div>
-          </div>
-          <el-empty v-if="!recentAnnouncements.length" description="暂无公告" :image-size="60" />
-        </div>
-      </div>
-
       <!-- Activity Chart -->
       <div class="activity-chart card">
         <div class="card-header">
@@ -218,8 +194,6 @@ const quickActions = [
 
 const recentActivities = computed(() => store.activities.slice(0, 5))
 
-const recentAnnouncements = computed(() => store.announcements.slice(0, 4))
-
 const topUsers = computed(() => store.leaderboard.slice(0, 5))
 
 function getCompletionRate(activity) {
@@ -275,7 +249,6 @@ onMounted(async () => {
   await Promise.all([
     store.fetchDashboardStats(),
     store.fetchActivities({ page: 1, page_size: 5 }),
-    store.fetchAnnouncements({ page: 1, page_size: 4 }),
     store.fetchLeaderboard(5),
   ])
   initChart()
@@ -447,29 +420,6 @@ onMounted(async () => {
   }
   .points-label { font-size: 12px; color: $text-tertiary; }
 }
-
-.announcements { grid-column: span 1; }
-.announcement-list { display: flex; flex-direction: column; }
-
-.announcement-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid $border-color;
-  &:last-child { border-bottom: none; padding-bottom: 0; }
-}
-
-.announcement-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: $primary-color;
-  margin-top: 6px;
-  flex-shrink: 0;
-}
-
-.announcement-title { font-weight: 500; color: $text-primary; margin-bottom: 4px; }
-.announcement-date { font-size: 12px; color: $text-tertiary; }
 
 .activity-chart { grid-column: span 2; }
 
