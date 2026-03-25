@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { MOCK_USERS_PAGE, setAuthToken } from './helpers.js'
+import { MOCK_USERS_PAGE, MOCK_USER_ACTIVITIES, setAuthToken } from './helpers.js'
 
 const EMPTY_PAGE = {
   code: 0,
@@ -33,6 +33,9 @@ test.describe('用户管理', () => {
       const url = route.request().url()
       if (url.includes('/points')) {
         return route.fulfill({ json: { code: 0, message: 'Points updated', data: null } })
+      }
+      if (url.includes('/activities')) {
+        return route.fulfill({ json: MOCK_USER_ACTIVITIES })
       }
       if (method === 'GET' && /\/users\/[^/?]+$/.test(url)) {
         return route.fulfill({ json: MOCK_USER_DETAIL })
@@ -147,4 +150,49 @@ test.describe('用户管理', () => {
     // Dropdown with level options should appear (filter by known option text)
     await expect(page.locator('.el-select-dropdown').filter({ hasText: '全部等级' })).toBeVisible({ timeout: 3000 })
   })
-})
+
+  // ---------------------------------------------------------------------------
+  // User Activity Records
+  // ---------------------------------------------------------------------------
+
+  test('查看用户详情显示活动记录', async ({ page }) => {
+    await expect(page.getByText('N20230002')).toBeVisible({ timeout: 8000 })
+
+    // Click view button (circle button)
+    const viewBtn = page.locator('.actions-cell button.is-circle:not(.el-button--danger)').first()
+    await expect(viewBtn).toBeVisible()
+    await viewBtn.click()
+
+    // Dialog should open
+    const dialog = page.locator('.el-dialog')
+    await expect(dialog).toBeVisible()
+
+    // Activity records section should be visible
+    await expect(dialog.locator('.activity-records')).toBeVisible({ timeout: 5000 })
+  })
+
+  test('活动记录显示签到状态', async ({ page }) => {
+    await expect(page.getByText('N20230002')).toBeVisible({ timeout: 8000 })
+
+    const viewBtn = page.locator('.actions-cell button.is-circle:not(.el-button--danger)').first()
+    await viewBtn.click()
+
+    const dialog = page.locator('.el-dialog')
+    await expect(dialog).toBeVisible()
+
+    // Check for status tags (已签到 / 已报名)
+    await expect(dialog.locator('.activity-status-tag').first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('活动记录显示积分', async ({ page }) => {
+    await expect(page.getByText('N20230002')).toBeVisible({ timeout: 8000 })
+
+    const viewBtn = page.locator('.actions-cell button.is-circle:not(.el-button--danger)').first()
+    await viewBtn.click()
+
+    const dialog = page.locator('.el-dialog')
+    await expect(dialog).toBeVisible()
+
+    // Check for points display
+    await expect(dialog.locator('.activity-points').first()).toBeVisible({ timeout: 5000 })
+  })

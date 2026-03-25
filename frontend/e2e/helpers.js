@@ -59,9 +59,8 @@ export const MOCK_ACTIVITIES_PAGE = {
         activity_id: 1704067200000,
         name: 'Test Activity Alpha',
         venue: 'Main Hall',
-        date_range: '2024-01-15 ~ 2024-01-16',
-        start_date: '2024-01-15',
-        end_date: '2024-01-16',
+        start_date: '2024-01-15T09:00:00',
+        end_date: '2024-01-15T17:00:00',
         total_point: '10.00',
         sign_up_count: 5,
         completed_count: 3,
@@ -98,6 +97,33 @@ export const MOCK_USERS_PAGE = {
     page_size: 20,
     total_pages: 1,
   },
+}
+
+export const MOCK_USER_ACTIVITIES = {
+  code: 0,
+  message: 'success',
+  data: [
+    {
+      id: 'ra123abc456def789ab12',
+      activity_id: 'act123abc456def789ab123',
+      activity_name: 'Test Activity Alpha',
+      venue: 'Main Hall',
+      is_completed: true,
+      points_earned: 10.00,
+      registered_at: '2024-01-15T08:30:00',
+      completed_at: '2024-01-15T17:00:00',
+    },
+    {
+      id: 'ra456def789abc012ab34cd',
+      activity_id: 'act456def789abc012ab345',
+      activity_name: 'Another Activity',
+      venue: 'Room 101',
+      is_completed: false,
+      points_earned: 0,
+      registered_at: '2024-01-20T10:00:00',
+      completed_at: null,
+    },
+  ],
 }
 
 export const MOCK_ANNOUNCEMENTS_PAGE = {

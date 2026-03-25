@@ -7,7 +7,7 @@ import pytest
 
 from app.dependencies import get_user_repo
 from app.main import app
-from tests.conftest import MOCK_USER, PAGINATED_RESULT_TEMPLATE
+from tests.conftest import MOCK_USER, MOCK_USER_ACTIVITY, PAGINATED_RESULT_TEMPLATE
 
 
 def make_user_repo_mock(**overrides):
@@ -22,6 +22,7 @@ def make_user_repo_mock(**overrides):
     repo.update_points = AsyncMock(return_value=True)
     repo.update = AsyncMock(return_value=True)
     repo.delete_user = AsyncMock(return_value=True)
+    repo.get_user_activities = AsyncMock(return_value=[MOCK_USER_ACTIVITY])
     for k, v in overrides.items():
         setattr(repo, k, v)
     return repo
@@ -221,3 +222,43 @@ class TestDeleteUser:
 
         response = await client.delete(self.URL.format(user_id="nonexistent"))
         assert response.status_code == 404
+
+
+# =============================================================================
+# GET /api/v1/users/{user_id}/activities
+# =============================================================================
+
+class TestGetUserActivities:
+    URL = "/api/v1/users/{user_id}/activities"
+
+    async def test_get_activities_success(self, client_with_user_repo):
+        client, repo = client_with_user_repo
+        response = await client.get(self.URL.format(user_id=MOCK_USER["id"]))
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["code"] == 0
+        assert isinstance(body["data"], list)
+        assert len(body["data"]) == 1
+        assert body["data"][0]["activity_name"] == MOCK_USER_ACTIVITY["activity_name"]
+
+    async def test_get_activities_empty(self, client_with_user_repo):
+        client, repo = client_with_user_repo
+        repo.get_user_activities = AsyncMock(return_value=[])
+
+        response = await client.get(self.URL.format(user_id=MOCK_USER["id"]))
+
+        assert response.status_code == 200
+        assert response.json()["data"] == []
+
+    async def test_get_activities_user_not_found(self, client_with_user_repo):
+        client, repo = client_with_user_repo
+        repo.find_by_id = AsyncMock(return_value=None)
+
+        response = await client.get(self.URL.format(user_id="nonexistent"))
+
+        assert response.status_code == 404
+
+    async def test_get_activities_unauthorized(self, client_no_auth):
+        response = await client_no_auth.get(self.URL.format(user_id=MOCK_USER["id"]))
+        assert response.status_code in (401, 403)

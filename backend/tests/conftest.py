@@ -80,6 +80,17 @@ MOCK_ACTIVITY = {
     "updated_at": "2024-01-01T00:00:00",
 }
 
+MOCK_USER_ACTIVITY = {
+    "id": "ra123abc456def789ab12",
+    "activity_id": "act123abc456def789ab123",
+    "activity_name": "Test Activity",
+    "venue": "Main Hall",
+    "is_completed": True,
+    "points_earned": Decimal("10.00"),
+    "registered_at": "2024-01-15T08:30:00",
+    "completed_at": "2024-01-15T17:00:00",
+}
+
 MOCK_SUB_ACTIVITY = {
     "id": 1,
     "activity_id": "act123abc456def789ab123",

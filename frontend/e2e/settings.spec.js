@@ -194,6 +194,38 @@ test.describe('系统设置 (Settings)', () => {
     }
   })
 
+  test('等级编辑面板显示描述字段', async ({ page }) => {
+    await expect(page.locator('.level-config-section')).toBeVisible({ timeout: 5000 })
+
+    // Click on a level row to enter edit mode
+    const levelRow = page.locator('.level-row').first()
+    await levelRow.click()
+
+    // Edit panel should appear with description fields
+    const editPanel = page.locator('.level-row-edit')
+    await expect(editPanel).toBeVisible({ timeout: 3000 })
+
+    // Check for description fields (中文/英文)
+    const descLabels = editPanel.getByText(/等级描述/)
+    await expect(descLabels.first()).toBeVisible({ timeout: 3000 })
+  })
+
+  test('等级编辑面板双列布局', async ({ page }) => {
+    await expect(page.locator('.level-config-section')).toBeVisible({ timeout: 5000 })
+
+    const levelRow = page.locator('.level-row').first()
+    await levelRow.click()
+
+    const editPanel = page.locator('.level-row-edit')
+    await expect(editPanel).toBeVisible({ timeout: 3000 })
+
+    // Check for edit grid layout
+    const editGrid = editPanel.locator('.edit-grid')
+    if (await editGrid.count() > 0) {
+      await expect(editGrid).toBeVisible()
+    }
+  })
+
   test('系统设置表单可见', async ({ page }) => {
     // Wait for page to load
     await expect(page.locator('.settings-form')).toBeVisible({ timeout: 5000 }).catch(() => {

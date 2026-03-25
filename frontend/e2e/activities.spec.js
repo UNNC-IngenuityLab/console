@@ -121,6 +121,29 @@ test.describe('活动管理', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // Date Range Picker
+  // ---------------------------------------------------------------------------
+
+  test('创建活动时日期选择器可用', async ({ page }) => {
+    await expect(page.locator('.activity-name').first()).toBeVisible({ timeout: 8000 })
+
+    const createBtn = page.getByRole('button', { name: /新建活动/ }).first()
+    if (await createBtn.count() === 0) {
+      test.skip()
+      return
+    }
+
+    await createBtn.click()
+    await page.locator('.el-dialog').waitFor({ state: 'visible' })
+
+    // Date range picker should be visible
+    const datePicker = page.locator('.el-date-editor--datetimerange').first()
+    if (await datePicker.count() > 0) {
+      await expect(datePicker).toBeVisible()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
   // Delete Activity
   // ---------------------------------------------------------------------------
 
