@@ -25,6 +25,12 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
+    preview: {
+      // 允许所有域名访问 preview 服务器
+      allowedHosts: 'all',
+      host: env.VITE_DEV_HOST || '0.0.0.0',
+      port: parseInt(env.VITE_DEV_PORT || '5173', 10),
+    },
     build: {
       // 生产环境输出目录
       outDir: 'dist',
